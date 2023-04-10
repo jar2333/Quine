@@ -1,3 +1,14 @@
+module Kanren
+    ( (===)
+    , callFresh
+    , disj
+    , conj
+    , initialState
+    , disjPlus
+    , conjPlus
+    ) where
+
+
 import Data.Map as Map ( insert, lookup, Map, empty )
 import Data.Maybe as Maybe ( fromMaybe )
 
@@ -28,7 +39,7 @@ occurs _ _ _          = False
 
 extendSubst :: Var -> Term -> Subst -> Maybe Subst
 extendSubst x v s | occurs x v s = Nothing
-                  | otherwise    = Just (insert x v s)
+                  | otherwise    = Just (Map.insert x v s)
 
 unify :: Term -> Term -> Subst -> Maybe Subst
 unify u v s | u == v              = Just s
@@ -56,7 +67,7 @@ disj :: Goal -> Goal -> Goal
 disj g1 g2 state = g1 state ++ g2 state
 
 conj :: Goal -> Goal -> Goal
-conj g1 g2 state = concatMap g2 (g1 state)
+conj g1 g2 state = concatMap g2 $ g1 state
 
 ---
 -- Initial state
@@ -66,16 +77,32 @@ initialState :: State
 initialState = State Map.empty 0
 
 ---
+-- Extensions
+---
+
+disjPlus :: [Goal] -> Goal
+disjPlus [g]    = g
+disjPlus (g:gs) = disj g (disjPlus gs)
+disjPlus [] = error "Not possible."
+
+conjPlus :: [Goal] -> Goal
+conjPlus [g]    = g
+conjPlus (g:gs) = conj g (conjPlus gs)
+conjPlus [] = error "Not possible."
+
+---
 -- Examples
 ---
 
 example :: Stream
 example = disj 
-            (callFresh (\x -> 
-                Symbol "z" === Var x
+            (callFresh 
+                (\x -> 
+                    Symbol "z" === Var x
                 )
             ) 
-            (callFresh (\x -> 
-                Pair (Symbol "s") (Symbol "z") === Var x
+            (callFresh 
+                (\x -> 
+                    Pair (Symbol "s") (Symbol "z") === Var x
                 )
             ) initialState

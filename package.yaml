@@ -41,6 +41,7 @@ library:
   - bytestring
   - hashtables
   - containers
+  - mtl
   build-tools:
   - alex
   - happy
