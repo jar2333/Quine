@@ -42,6 +42,7 @@ library:
   - hashtables
   - containers
   - mtl
+  - logict
   build-tools:
   - alex
   - happy

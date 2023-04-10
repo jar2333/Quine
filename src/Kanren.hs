@@ -6,11 +6,18 @@ module Kanren
     , initialState
     , disjPlus
     , conjPlus
+    , run
+    , runAll
+    , Term(..)
+    , Goal
     ) where
 
 
 import Data.Map as Map ( insert, lookup, Map, empty )
 import Data.Maybe as Maybe ( fromMaybe )
+
+import Control.Monad
+import Control.Monad.Logic
 
 type Var = Int
 
@@ -20,7 +27,7 @@ type Subst = Map.Map Var Term
 
 data State = State {substitution :: Subst, count :: Int} deriving (Show)
 
-type Stream = [State]
+type Stream = Logic State
 
 type Goal = State -> Stream
 
@@ -57,17 +64,17 @@ unify _ _ _                       = Nothing
 (===) :: Term -> Term -> Goal
 (===) u v (State s c) = 
     case unify (find u s) (find v s) s of
-        Just s' -> [State s' c]
-        Nothing -> []
+        Just s' -> return $ State s' c
+        Nothing -> mzero
 
 callFresh :: (Var -> Goal) -> Goal
 callFresh f (State s c) = f c $ State s (c+1)
 
 disj :: Goal -> Goal -> Goal
-disj g1 g2 state = g1 state ++ g2 state
+disj g1 g2 state = g1 state `mplus` g2 state
 
 conj :: Goal -> Goal -> Goal
-conj g1 g2 state = concatMap g2 $ g1 state
+conj g1 g2 state = msum $ mapM g2 (g1 state)
 
 ---
 -- Initial state
@@ -91,18 +98,11 @@ conjPlus (g:gs) = conj g (conjPlus gs)
 conjPlus [] = error "Not possible."
 
 ---
--- Examples
----
+-- Runner
+--- 
 
-example :: Stream
-example = disj 
-            (callFresh 
-                (\x -> 
-                    Symbol "z" === Var x
-                )
-            ) 
-            (callFresh 
-                (\x -> 
-                    Pair (Symbol "s") (Symbol "z") === Var x
-                )
-            ) initialState
+run :: Int -> Goal -> State -> [State]
+run i g s = observeMany i (g s)
+
+runAll :: Goal -> State -> [State]
+runAll g s = observeAll (g s)
