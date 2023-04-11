@@ -10,6 +10,7 @@ module Kanren
     , runAll
     , Term(..)
     , Goal
+    , KanrenState
     ) where
 
 
@@ -25,11 +26,13 @@ data Term = Var Var | Symbol String | Bool Bool | Nil | Pair Term Term deriving 
 
 type Subst = Map.Map Var Term
 
-data State = State {substitution :: Subst, count :: Int} deriving (Show)
+data KanrenState = State {substitution :: Subst, count :: Int} deriving (Show)
 
-type Stream = Logic State
+type Stream = Logic KanrenState
 
-type Goal = State -> Stream
+type Goal = KanrenState -> Stream
+
+-- TO DO: SEPARATE THE COUNTER STATE FROM THE SUBSTITUTION PASSING!
 
 ---
 -- First-order unification implementation
@@ -74,13 +77,14 @@ disj :: Goal -> Goal -> Goal
 disj g1 g2 state = g1 state `mplus` g2 state
 
 conj :: Goal -> Goal -> Goal
-conj g1 g2 state = msum $ mapM g2 (g1 state)
+conj g1 g2 state = mconcatMap g2 $ g1 state
+    where mconcatMap f = msum . mapM f
 
 ---
 -- Initial state
 --- 
 
-initialState :: State
+initialState :: KanrenState
 initialState = State Map.empty 0
 
 ---
@@ -101,8 +105,8 @@ conjPlus [] = error "Not possible."
 -- Runner
 --- 
 
-run :: Int -> Goal -> State -> [State]
+run :: Int -> Goal -> KanrenState -> [KanrenState]
 run i g s = observeMany i (g s)
 
-runAll :: Goal -> State -> [State]
+runAll :: Goal -> KanrenState -> [KanrenState]
 runAll g s = observeAll (g s)

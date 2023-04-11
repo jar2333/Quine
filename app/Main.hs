@@ -1,20 +1,19 @@
 module Main (main) where
 
-import Lib
 import Kanren
 
 example :: Goal
-example = disj 
-            (callFresh 
-                (\x -> 
-                    Symbol "z" === Var x
-                )
-            ) 
-            (callFresh 
-                (\x -> 
-                    Pair (Symbol "s") (Symbol "z") === Var x
-                )
-            ) 
+example = callFresh 
+            (\q ->
+                (callFresh 
+                    (\x -> 
+                        (conj
+                            (Pair (Symbol "s") (Var q) === Var x)
+                            (Symbol "z" === Var q)
+                        )
+                    )
+                ) 
+            )
 
 main :: IO ()
 main = do
