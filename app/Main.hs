@@ -18,7 +18,6 @@ example = callFresh "q"
 main :: IO ()
 main = do
     let results = runAll example initialState
-    print results
     let reified = map (reifyPrint ["q", "x"]) results
     print reified
 
