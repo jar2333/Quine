@@ -9,7 +9,7 @@ module Kanren
     , run
     , runAll
     , reify
-    , fromString
+    , reifyPrint
     , Term(..)
     , Goal
     , KanrenState(..)
@@ -24,11 +24,12 @@ import Control.Monad.Logic
 
 type Var = Int
 
-data Term = Var Var | Symbol String | Bool Bool | Nil | Pair Term Term deriving (Eq, Show)
+data Term = ID String | Var Var | Symbol String | Bool Bool | Nil | Pair Term Term deriving (Eq, Show)
 
 type Subst = Map.Map Var Term
+type Bind  = Map.Map String Var
 
-data KanrenState = State {substitution :: Subst, count :: Int} deriving (Show)
+data KanrenState = State {substitution :: Subst, bindings :: Bind, count :: Int} deriving (Show)
 
 type Goal = KanrenState -> Logic KanrenState
 
@@ -59,19 +60,25 @@ unify (Pair ua ub) (Pair va vb) s = do
     s' <- unify (find ua s) (find va s) s
     unify (find ub s') (find vb s') s'
 unify _ _ _                       = Nothing
+-- consider case of ID?
 
 ---
 -- Goal constructors
 ---
 
 (===) :: Term -> Term -> Goal
-(===) u v = \(State s c) ->
-    case unify (find u s) (find v s) s of
-        Just s' -> return $ State s' c
+(===) u v (State s b c) =
+    case unify (find u' s) (find v' s) s of
+        Just s' -> return $ State s' b c
         Nothing -> mzero
+    where u' = substID u
+          v' = substID v
+          substID ident@(ID i) = maybe ident Var (Map.lookup i b)
+          substID (Pair t1 t2) = Pair (substID t1) (substID t2)
+          substID x = x
 
-callFresh :: (Var -> Goal) -> Goal
-callFresh f = \(State s c) -> f c $ State s (c+1)
+callFresh :: String -> Goal -> Goal
+callFresh q g = \(State s b c) -> g $ State s (Map.insert q c b) (c+1)
 
 disj :: Goal -> Goal -> Goal
 disj g1 g2 = \state -> g1 state `interleave` g2 state
@@ -86,7 +93,7 @@ conj g1 g2 = \state -> sumMap g2 (g1 state)
 --- 
 
 initialState :: KanrenState
-initialState = State Map.empty 0
+initialState = State Map.empty Map.empty 0 
 
 ---
 -- Extensions
@@ -116,12 +123,12 @@ runAll g s = observeAll (g s)
 -- Reifiers
 ---
 
-fromString :: String -> Var
-fromString v = 0
+reify :: [String] -> KanrenState -> [Maybe Term]
+reify idents (State subst bind _) = map fromString idents
+    where fromString :: String -> Maybe Term
+          fromString i = get =<< Map.lookup i bind
 
-reify :: [Var] -> Subst -> [Maybe Term]
-reify vars subst = map get vars
-    where get :: Var -> Maybe Term
+          get :: Var -> Maybe Term
           get v = do t <- Map.lookup v subst
                      return $ replace t
 
@@ -129,3 +136,8 @@ reify vars subst = map get vars
           replace (Var v) = fromMaybe (Var (-1)) (get v)
           replace (Pair t1 t2) = Pair (replace t1) (replace t2)
           replace x = x
+
+reifyPrint :: [String] -> KanrenState -> [String]
+reifyPrint i s = map pretty $ reify i s
+    where pretty Nothing = "_"
+          pretty (Just t)  = show t
