@@ -3,13 +3,13 @@ module Kanren
     , callFresh
     , disj
     , conj
-    , callRelation
+    -- , callRelation
     , initialState
     , disjPlus
     , conjPlus
     , run
     , runAll
-    , defineRelation
+    -- , defineRelation
     , reify
     , reifyPrint
     , Term(..)
@@ -18,15 +18,27 @@ module Kanren
     ) where
 
 
-import Data.Map as Map ( insert, lookup, Map, empty )
+import Data.Map as Map ( insert, lookup, empty, Map )
 import Data.Maybe as Maybe ( fromMaybe )
 
 import Control.Monad
 import Control.Monad.Logic
 
+import Data.Char ( toUpper, toLower )
+import Data.List ( intercalate )
+
 type Var = Int
 
 data Term = ID String | Var Var | Symbol String | Bool Bool | Nil | Pair Term Term deriving (Eq, Show)
+
+pretty :: Term -> String
+pretty (Pair t1 t2) = "(" ++ pretty t1 ++ ", " ++ pretty t2 ++ ")"
+pretty (ID i) = map toUpper i
+pretty (Var v) = show v
+pretty (Symbol s) = s
+pretty (Bool b) = map toLower $ show b
+pretty Nil = "()" 
+
 
 type Subst = Map.Map Var Term
 type Bind  = Map.Map String Var
@@ -35,7 +47,6 @@ type Relations   = Map.Map String ([Term] -> Goal)
 data KanrenState = State {
                             substitution :: Subst, 
                             bindings :: Bind,
-                            relations :: Relations, 
                             count :: Int
                         } 
 
@@ -68,16 +79,15 @@ unify (Pair ua ub) (Pair va vb) s = do
     s' <- unify (find ua s) (find va s) s
     unify (find ub s') (find vb s') s'
 unify _ _ _                       = Nothing
--- consider case of ID?
 
 ---
 -- Goal constructors
 ---
 
 (===) :: Term -> Term -> Goal
-(===) u v (State s b r c) =
+(===) u v (State s b c) =
     case unify (find u' s) (find v' s) s of
-        Just s' -> return $ State s' b r c
+        Just s' -> return $ State s' b c
         Nothing -> mzero
     where u' = substID u
           v' = substID v
@@ -86,7 +96,7 @@ unify _ _ _                       = Nothing
           substID x = x
 
 callFresh :: String -> Goal -> Goal
-callFresh q g = \(State s b r c) -> g $ State s (Map.insert q c b) r (c+1)
+callFresh q g = \(State s b c) -> g $ State s (Map.insert q c b) (c+1)
 
 disj :: Goal -> Goal -> Goal
 disj g1 g2 = \state -> g1 state `interleave` g2 state
@@ -96,18 +106,18 @@ conj g1 g2 = \state -> sumMap g2 (g1 state)
     where sumMap f = fairsum . mapM f
           fairsum = foldr interleave mzero
 
-callRelation :: String -> [Term] -> Goal
-callRelation rel args = \s@(State _ _ r _) -> 
-    case Map.lookup rel r of
-        Just f  -> let g = f args in g s
-        Nothing -> error "Relation not found!"
+-- callRelation :: String -> [Term] -> Goal
+-- callRelation rel args = \s@(State _ _ r _) -> 
+--     case Map.lookup rel r of
+--         Just f  -> let g = f args in g s
+--         Nothing -> error "Relation not found!"
 
 ---
 -- Initial state
 --- 
 
 initialState :: KanrenState
-initialState = State Map.empty Map.empty Map.empty 0 
+initialState = State Map.empty Map.empty 0 
 
 ---
 -- Extensions
@@ -127,11 +137,11 @@ conjPlus [] = error "Not possible."
 -- Statements: maintain a global state of defined relations
 ---
 
-defineRelation :: String -> [String] -> Goal -> Relations -> Relations
-defineRelation rel idents goal = Map.insert rel binded
-    where binded args = foldr callFresh (padded args) idents
-          padded args = foldr ($) goal (constraints args)
-          constraints args = [conj (ID i === t) | (t, i) <- zip args idents]
+-- defineRelation :: String -> [String] -> Goal -> Relations -> Relations
+-- defineRelation rel idents goal = Map.insert rel binded
+--     where binded args = foldr callFresh (padded args) idents
+--           padded args = foldr ($) goal (constraints args)
+--           constraints args = [conj (ID i === t) | (t, i) <- zip args idents]
 
 run :: Int -> Goal -> KanrenState -> [KanrenState]
 run i g s = observeMany i (g s)
@@ -144,7 +154,7 @@ runAll g s = observeAll (g s)
 ---
 
 reify :: [String] -> KanrenState -> [Maybe Term]
-reify idents (State subst bind _ _) = map fromString idents
+reify idents (State subst bind _) = map fromString idents
     where fromString :: String -> Maybe Term
           fromString i = get =<< Map.lookup i bind
 
@@ -157,7 +167,7 @@ reify idents (State subst bind _ _) = map fromString idents
           replace (Pair t1 t2) = Pair (replace t1) (replace t2)
           replace x = x
 
-reifyPrint :: [String] -> KanrenState -> [String]
-reifyPrint i s = map pretty $ reify i s
-    where pretty Nothing = "_"
-          pretty (Just t)  = show t
+reifyPrint :: [String] -> KanrenState -> String
+reifyPrint i s = "[" ++ intercalate "; " (map p $ reify i s) ++ "]" 
+    where p Nothing = "_"
+          p (Just t)  = pretty t
