@@ -8,9 +8,11 @@ module Kanren
     , conjPlus
     , run
     , runAll
+    , reify
+    , fromString
     , Term(..)
     , Goal
-    , KanrenState
+    , KanrenState(..)
     ) where
 
 
@@ -28,9 +30,7 @@ type Subst = Map.Map Var Term
 
 data KanrenState = State {substitution :: Subst, count :: Int} deriving (Show)
 
-type Stream = Logic KanrenState
-
-type Goal = KanrenState -> Stream
+type Goal = KanrenState -> Logic KanrenState
 
 -- TO DO: SEPARATE THE COUNTER STATE FROM THE SUBSTITUTION PASSING!
 
@@ -65,20 +65,21 @@ unify _ _ _                       = Nothing
 ---
 
 (===) :: Term -> Term -> Goal
-(===) u v (State s c) = 
+(===) u v = \(State s c) ->
     case unify (find u s) (find v s) s of
         Just s' -> return $ State s' c
         Nothing -> mzero
 
 callFresh :: (Var -> Goal) -> Goal
-callFresh f (State s c) = f c $ State s (c+1)
+callFresh f = \(State s c) -> f c $ State s (c+1)
 
 disj :: Goal -> Goal -> Goal
-disj g1 g2 state = g1 state `mplus` g2 state
+disj g1 g2 = \state -> g1 state `interleave` g2 state
 
 conj :: Goal -> Goal -> Goal
-conj g1 g2 state = mconcatMap g2 $ g1 state
-    where mconcatMap f = msum . mapM f
+conj g1 g2 = \state -> sumMap g2 (g1 state)
+    where sumMap f = fairsum . mapM f
+          fairsum = foldr interleave mzero
 
 ---
 -- Initial state
@@ -110,3 +111,21 @@ run i g s = observeMany i (g s)
 
 runAll :: Goal -> KanrenState -> [KanrenState]
 runAll g s = observeAll (g s)
+
+---
+-- Reifiers
+---
+
+fromString :: String -> Var
+fromString v = 0
+
+reify :: [Var] -> Subst -> [Maybe Term]
+reify vars subst = map get vars
+    where get :: Var -> Maybe Term
+          get v = do t <- Map.lookup v subst
+                     return $ replace t
+
+          replace :: Term -> Term
+          replace (Var v) = fromMaybe (Var (-1)) (get v)
+          replace (Pair t1 t2) = Pair (replace t1) (replace t2)
+          replace x = x
