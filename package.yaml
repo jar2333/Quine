@@ -43,6 +43,8 @@ library:
   - containers
   - mtl
   - logict
+  - megaparsec
+  - containers
   build-tools:
   - alex
   - happy

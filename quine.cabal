@@ -28,6 +28,7 @@ library
       AST
       Kanren
       Lib
+      Parse
   other-modules:
       Paths_quine
   hs-source-dirs:
@@ -43,6 +44,7 @@ library
     , containers
     , hashtables
     , logict
+    , megaparsec
     , mtl
   default-language: Haskell2010
 

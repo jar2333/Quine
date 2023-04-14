@@ -8,6 +8,7 @@ module AST
 
 type ID = String
 type UVar = String
+type Var = String
 
 data Statement = Rule ID [UVar] Goal
                | Query (Maybe Int) Goal
@@ -21,10 +22,27 @@ data Goal = Disj Goal Goal
           | Equal Term Term
           | Relation ID [Arg] Goal
 
-type Var = String
-
 data Term = UVar UVar
-          | Abs [Var] Term
           | Var Var
-          | Apply Term Term
+          | Abs [Var] Term
+          | App Term Term
           | Let Var Term Term
+          deriving (Eq, Ord)
+
+
+showAbs, showApp, showVar, showLet :: Term -> String
+showAbs (Abs i e) = "\\" ++ concatMap show i ++ " . " ++ showAbs e
+showAbs e = showApp e
+
+showApp (App e1 e2) = showApp e1 ++ " " ++ showVar e2
+showApp e = showVar e
+
+showVar (Var i) = i
+showVar e = "(" ++ showAbs e ++ ")"
+
+showLet (Let v e1 e2) = "let" ++ v ++ "=" ++ showAbs e1 ++ 
+                        "in"  ++ showAbs e2 
+showLet e = "(" ++ showAbs e ++ ")"
+
+instance Show Term where
+  show e = showAbs e
