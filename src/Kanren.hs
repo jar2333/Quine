@@ -100,7 +100,7 @@ unify _ _ _                       = Nothing
           substID (Pair t1 t2) = Pair (substID t1) (substID t2)
           substID x = x
 
--- For the subtree, make it so every instance of q is replaced with c
+-- For the subtree, make it so every instance of q is replaced with cnt
 -- Then for each state in the result stream, restore the original binding
 callFresh :: String -> Goal -> Goal
 callFresh q g (State subt bind cnt) = do
