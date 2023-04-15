@@ -151,7 +151,7 @@ callRelation name args = binded $ \state -> do
                    in g state
         Nothing -> error "Relation not found!"
 
-    where binded goal = foldr callFresh (padded goal) idents
+    where binded goal = fresh idents (padded goal)
           padded goal = foldr ($) goal constraints
 
           constraints = [conj (t === ID i) | (t, i) <- zip args idents]
@@ -172,6 +172,9 @@ conjPlus [g]    = g
 conjPlus (g:gs) = conj g (conjPlus gs)
 conjPlus [] = error "Not possible."
 
+fresh :: [String] -> Goal -> Goal
+fresh idents g = foldr callFresh g idents
+
 ---
 -- Initial state
 --- 
@@ -190,7 +193,7 @@ defineRelation :: String -> [String] -> Goal -> State Environment ()
 defineRelation name idents goal = modify addRelation
     where addRelation (Env e) = Env $ Map.insert name binded e
 
-          binded args = foldr callFresh (padded args) idents
+          binded args = fresh idents (padded args)
           padded args = foldr ($) goal (constraints args)
 
           constraints args = [conj (t === ID i) | (t, i) <- zip args idents]
