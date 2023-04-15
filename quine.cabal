@@ -27,7 +27,6 @@ library
   exposed-modules:
       AST
       Kanren
-      Lib
       Parse
   other-modules:
       Paths_quine

@@ -152,10 +152,10 @@ callRelation name args = binded $ \state -> do
                    in g state
         Nothing -> error "Relation not found!"
 
-    where binded goal = fresh idents (padded goal)
-          padded goal = foldr ($) goal constraints
+    where binded goal = fresh idents $ padded goal
+          padded goal = conj goal $ conjPlus constraints
 
-          constraints = [conj (t === ID i) | (t, i) <- zip args idents]
+          constraints = [t === ID i| (t, i) <- zip args idents]
 
           idents = ["_" ++ show n | n <- [0..length args]]
 
@@ -194,10 +194,10 @@ defineRelation :: String -> [String] -> Goal -> State Environment ()
 defineRelation name idents goal = modify addRelation
     where addRelation (Env e) = Env $ Map.insert name binded e
 
-          binded args = fresh idents (padded args)
-          padded args = foldr ($) goal (constraints args)
+          binded args = fresh idents $ padded args
+          padded args = conj goal $ conjPlus $ constraints args
 
-          constraints args = [conj (t === ID i) | (t, i) <- zip args idents]
+          constraints args = [t === ID i| (t, i) <- zip args idents]
 
 
 run :: Int -> Goal -> State Environment [KanrenState]
