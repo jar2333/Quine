@@ -3,28 +3,16 @@ module Main (main) where
 import Kanren
 import Control.Monad.State
 
-example :: Goal
-example = callFresh "Q"
-                (disj
-                    (callFresh "x" 
-                            (conj
-                                (Pair (Symbol "s") (ID "x") === ID "Q")
-                                (Symbol "z" === ID "x")
-                            )
-                    ) 
-                    (ID "Q" === Symbol "r")
-                )
-
-shadowingExample = callFresh "Q" (callFresh "a"
-        (conj 
-            (
-                (ID "Q" === ID "a")
-            )
-            (callFresh "a"
-                (ID "a" === Symbol "4")
-            )
-        )
-    )  
+-- shadowingExample = callFresh "Q" (callFresh "a"
+--         (conj 
+--             (
+--                 (ID "Q" === ID "a")
+--             )
+--             (callFresh "a"
+--                 (ID "a" === Symbol "4")
+--             )
+--         )
+--     )  
 
 
 append :: State Environment ()
@@ -34,15 +22,13 @@ append = defineRelation "append" ["L", "S", "O"] (
                         (Nil === ID "L")
                         (ID "S" === ID "O") 
                     )
-                    (callFresh "a" 
-                        (callFresh "d"
-                            (conj
-                                (Pair (ID "a") (ID "d") === ID "L")
-                                (callFresh "r"
-                                    (conj
-                                        (Pair (ID "a") (ID "r") === ID "O")
-                                        (callRelation "append" [ID "d", ID "S", ID "r"])
-                                    )
+                    (fresh ["a", "d"] 
+                        (conj
+                            (Pair (ID "a") (ID "d") === ID "L")
+                            (fresh ["r"]
+                                (conj
+                                    (Pair (ID "a") (ID "r") === ID "O")
+                                    (callRelation "append" [ID "d", ID "S", ID "r"])
                                 )
                             )
                         )
@@ -51,13 +37,8 @@ append = defineRelation "append" ["L", "S", "O"] (
             ) 
 
 callExample :: Goal
-callExample = callFresh "T" $ 
-              callFresh "Q" $ 
-              callRelation "append" [
-                                     ID "T",
-                                     ID "Q",
-                                     Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
-                                        ]
+callExample = fresh ["T", "Q"] $ callRelation "append" [ ID "T", ID "Q",
+                                     Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))]
 
 runner :: State Environment [KanrenState]
 runner = do
@@ -67,7 +48,7 @@ runner = do
 main :: IO ()
 main = do
     let results = evalState runner initialEnv
-    let reified = [printSubst $ reify ["T", "Q"] s | s <- results]
+    let reified = printStream $ reifyAll ["T", "Q"] results
     print reified
 
 

@@ -6,12 +6,13 @@ module Kanren
     , callRelation
     , disjPlus
     , conjPlus
+    , fresh
     , initialEnv
     , defineRelation
     , run
     , runAll
-    , reify
-    , printSubst
+    , reifyAll
+    , printStream
     , Term(..)
     , Goal
     , KanrenState
@@ -213,17 +214,21 @@ runAll g = do
 -- Reifiers
 ---
 
+reifyAll :: [String] -> [KanrenState] -> [[(String, Maybe Term)]]
+reifyAll idents = map (reify idents)
+
+printStream :: [[(String, Maybe Term)]] -> String
+printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
+
 reify :: [String] -> KanrenState -> [(String, Maybe Term)]
 reify idents (State subst bind _) = zip idents terms
     where terms = map fromString idents
 
           fromString :: String -> Maybe Term
-          fromString i = getTerm =<< Map.lookup i bind
+          fromString i = Map.lookup i bind >>= getTerm
 
           getTerm :: Var -> Maybe Term
-          getTerm v = do
-                t <- Map.lookup v subst
-                return $ replace t
+          getTerm v = Map.lookup v subst >>= return . replace
 
           replace :: Term -> Term
           replace (Var v) = fromMaybe (ID "_") (getTerm v) -- If no substitution exists, any answer suffices!
@@ -232,7 +237,7 @@ reify idents (State subst bind _) = zip idents terms
 
 printSubst :: [(String, Maybe Term)] -> String
 printSubst results = subst
-    where subst = "{" ++ intercalate ", " r ++ "}"
-          r = [printTerm i t | (i, t) <- results]
+    where subst = "{" ++ intercalate ", " pairs ++ "}"
+          pairs = [printTerm i t | (i, t) <- results]
           printTerm i Nothing  = i ++ ": _"
           printTerm i (Just t) = i ++ ": " ++ pretty t
