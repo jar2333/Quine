@@ -59,7 +59,6 @@ callExample :: Goal
 callExample = callFresh "T" $ 
               callFresh "Q" $ 
               callRelation "append" [
-                                    --  Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") Nil)), 
                                      ID "T",
                                      ID "Q",
                                      Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
