@@ -3,26 +3,28 @@ module Kanren
     , callFresh
     , disj
     , conj
-    -- , callRelation
-    , initialState
+    , callRelation
     , disjPlus
     , conjPlus
+    , initialEnv
+    , defineRelation
     , run
     , runAll
-    -- , defineRelation
     , reify
-    , reifyPrint
+    , printSubst
     , Term(..)
     , Goal
-    , KanrenState(..)
+    , KanrenState
+    , Environment(..)
     ) where
 
 
 import Data.Map as Map ( insert, lookup, empty, Map )
 import Data.Maybe as Maybe ( fromMaybe )
 
-import Control.Monad
+import Control.Monad ( MonadPlus(mzero) )
 import Control.Monad.Logic
+import Control.Monad.State ( MonadState(get), State, modify )
 
 import Data.Char ( toUpper, toLower )
 import Data.List ( intercalate )
@@ -39,20 +41,23 @@ pretty (Symbol s) = s
 pretty (Bool b) = map toLower $ show b
 pretty Nil = "()" 
 
-
 type Subst = Map.Map Var Term
 type Bind  = Map.Map String Var
-type Relations   = Map.Map String ([Term] -> Goal)
 
 data KanrenState = State {
                             substitution :: Subst, 
                             bindings :: Bind,
                             count :: Int
-                        } 
+                        } deriving (Show)
 
-type Goal = KanrenState -> Logic KanrenState
+type Goal = KanrenState -> State Environment (Logic KanrenState)
 
--- TO DO: SEPARATE THE COUNTER STATE FROM THE SUBSTITUTION PASSING!
+
+---
+-- Environment: define and call relations
+---
+
+newtype Environment = Env (Map.Map String ([Term] -> Goal))
 
 ---
 -- First-order unification implementation
@@ -84,40 +89,62 @@ unify _ _ _                       = Nothing
 -- Goal constructors
 ---
 
+-- Unification constraints
 (===) :: Term -> Term -> Goal
 (===) u v (State s b c) =
     case unify (find u' s) (find v' s) s of
-        Just s' -> return $ State s' b c
-        Nothing -> mzero
+        Just s' -> return $ return (State s' b c)
+        Nothing -> return mzero
     where u' = substID u
           v' = substID v
-          substID ident@(ID i) = maybe ident Var (Map.lookup i b)
+          substID (ID i) = maybe (error $ i ++ " NOT FOUND") Var (Map.lookup i b)
           substID (Pair t1 t2) = Pair (substID t1) (substID t2)
           substID x = x
 
+-- For the subtree, make it so every instance of q is replaced with c
+-- Then for each state in the result stream, restore the original binding
 callFresh :: String -> Goal -> Goal
-callFresh q g = \(State s b c) -> g $ State s (Map.insert q c b) (c+1)
+callFresh q g = \(State subt bind cnt) -> do
+    let updated = Map.insert q cnt bind
+    stream <- g $ State subt updated (cnt+1)
 
+    let restore b = case Map.lookup q bind of
+            Just t  -> Map.insert q t b
+            Nothing -> b
+
+    return $ do
+        (State s b c) <- stream
+        return $ State s (restore b) c
+
+-- Concatenate together two streams of states
 disj :: Goal -> Goal -> Goal
-disj g1 g2 = \state -> g1 state `interleave` g2 state
+disj g1 g2 = \state -> do
+    s1 <- g1 state
+    s2 <- g2 state
+    return $ s1 `interleave` s2
 
+-- Apply the second goal to every state in the stream evaluated from first goal, concatenate all results
 conj :: Goal -> Goal -> Goal
-conj g1 g2 = \state -> sumMap g2 (g1 state)
-    where sumMap f = fairsum . mapM f
-          fairsum = foldr interleave mzero
+conj g1 g2 = \state -> do
+    s1 <- g1 state 
+    s' <- mapM g2 s1
+    return $ fairsum s'
 
--- callRelation :: String -> [Term] -> Goal
--- callRelation rel args = \s@(State _ _ r _) -> 
---     case Map.lookup rel r of
---         Just f  -> let g = f args in g s
---         Nothing -> error "Relation not found!"
+-- Re-implementation of msum using the fair `interleave`
+fairsum :: Logic (Logic KanrenState) -> Logic KanrenState
+fairsum = foldr interleave mzero
 
----
--- Initial state
---- 
-
-initialState :: KanrenState
-initialState = State Map.empty Map.empty 0 
+-- Call a previously defined relation
+-- KNOWN BUG: 
+-- If you call a relation with a variable introduced inside a define relation parameter list (recursive relation),
+-- then the algorithm doesnt work, due to naming conflicts. At the moment, defining a new variable and using a 
+-- conjunction to add an equality constraint to the intended one seems to work! Where to address this?
+callRelation :: String -> [Term] -> Goal
+callRelation name args = \state -> do
+    Env relations <- get
+    case Map.lookup name relations of
+        Just r  -> let g = r args in g state
+        Nothing -> error "Relation not found!"
 
 ---
 -- Extensions
@@ -134,40 +161,63 @@ conjPlus (g:gs) = conj g (conjPlus gs)
 conjPlus [] = error "Not possible."
 
 ---
+-- Initial state
+--- 
+
+initialState :: KanrenState
+initialState = State Map.empty Map.empty 0 
+
+initialEnv :: Environment
+initialEnv = Env Map.empty
+
+---
 -- Statements: maintain a global state of defined relations
 ---
 
--- defineRelation :: String -> [String] -> Goal -> Relations -> Relations
--- defineRelation rel idents goal = Map.insert rel binded
---     where binded args = foldr callFresh (padded args) idents
---           padded args = foldr ($) goal (constraints args)
---           constraints args = [conj (ID i === t) | (t, i) <- zip args idents]
+defineRelation :: String -> [String] -> Goal -> State Environment ()
+defineRelation name idents goal = modify addRelation
+    where addRelation (Env e) = Env $ Map.insert name binded e
+                
+          binded args = foldr callFresh (padded args) idents
+          padded args = foldr ($) goal (constraints args)
 
-run :: Int -> Goal -> KanrenState -> [KanrenState]
-run i g s = observeMany i (g s)
+          constraints args = [conj (t === ID i) | (t, i) <- zip args idents]    
 
-runAll :: Goal -> KanrenState -> [KanrenState]
-runAll g s = observeAll (g s)
+
+run :: Int -> Goal -> State Environment [KanrenState]
+run i g = do
+    stream <- g initialState
+    return $ observeMany i stream
+
+runAll :: Goal -> State Environment [KanrenState]
+runAll g = do    
+    stream <- g initialState
+    return $ observeAll stream
 
 ---
 -- Reifiers
 ---
 
-reify :: [String] -> KanrenState -> [Maybe Term]
-reify idents (State subst bind _) = map fromString idents
-    where fromString :: String -> Maybe Term
-          fromString i = get =<< Map.lookup i bind
+reify :: [String] -> KanrenState -> [(String, Maybe Term)]
+reify idents (State subst bind _) = zip idents terms
+    where terms = map fromString idents
+        
+          fromString :: String -> Maybe Term
+          fromString i = getTerm =<< Map.lookup i bind
 
-          get :: Var -> Maybe Term
-          get v = do t <- Map.lookup v subst
-                     return $ replace t
+          getTerm :: Var -> Maybe Term
+          getTerm v = do 
+                t <- Map.lookup v subst
+                return $ replace t
 
           replace :: Term -> Term
-          replace (Var v) = fromMaybe (Var (-1)) (get v)
+          replace (Var v) = fromMaybe (ID "_") (getTerm v) -- If no substitution exists, any answer suffices!
           replace (Pair t1 t2) = Pair (replace t1) (replace t2)
           replace x = x
 
-reifyPrint :: [String] -> KanrenState -> String
-reifyPrint i s = "[" ++ intercalate "; " (map p $ reify i s) ++ "]" 
-    where p Nothing = "_"
-          p (Just t)  = pretty t
+printSubst :: [(String, Maybe Term)] -> String
+printSubst results = subst 
+    where subst = "{" ++ intercalate ", " r ++ "}"
+          r = [printTerm i t | (i, t) <- results]
+          printTerm i Nothing  = i ++ ": _"
+          printTerm i (Just t) = i ++ ": " ++ pretty t

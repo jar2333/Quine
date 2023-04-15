@@ -1,52 +1,80 @@
 module Main (main) where
 
 import Kanren
+import Control.Monad.State
 
 example :: Goal
-example = callFresh "q"
+example = callFresh "Q"
                 (disj
                     (callFresh "x" 
                             (conj
-                                (Pair (Symbol "s") (ID "q") === ID "x")
-                                (Symbol "z" === ID "q")
+                                (Pair (Symbol "s") (ID "x") === ID "Q")
+                                (Symbol "z" === ID "x")
                             )
                     ) 
-                    (ID "q" === Symbol "r")
+                    (ID "Q" === Symbol "r")
                 )
--- addRelations :: KanrenState -> KanrenState
--- addRelations (State s b r c) = State s b append c
---     where append = defineRelation "append" ["L", "S", "O"] (
---                 (disj
---                     (conj
---                         (Nil === ID "L")
---                         (ID "S" === ID "O") 
---                     )
---                     (callFresh "a" 
---                         (callFresh "d"
---                             (conj
---                                 (Pair (ID "a") (ID "d") === ID "L")
---                                 (callFresh "r"
---                                     (conj
---                                         (Pair (ID "a") (ID "r") === ID "O")
---                                         (callRelation "append" [ID "d", ID "S", ID "r"])
---                                     )
---                                 )
---                             )
---                         )
---                     )
---                 )
---             ) r 
 
--- callExample :: Goal
--- callExample = callRelation "append" [
---                                      Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") Nil)), 
---                                      ID "Q",
---                                      Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
---                                         ]
+shadowingExample = callFresh "Q" (callFresh "a"
+        (conj 
+            (
+                (ID "Q" === ID "a")
+            )
+            (callFresh "a"
+                (ID "a" === Symbol "4")
+            )
+        )
+    )  
+
+
+append :: State Environment ()
+append = defineRelation "append" ["L", "S", "O"] (
+                (disj
+                    (conj
+                        (Nil === ID "L")
+                        (ID "S" === ID "O") 
+                    )
+                    (callFresh "a" 
+                        (callFresh "d"
+                            (conj
+                                (Pair (ID "a") (ID "d") === ID "L")
+                                (callFresh "r"
+                                    (conj
+                                        (Pair (ID "a") (ID "r") === ID "O")
+                                        (callFresh "_S"
+                                            (conj
+                                                (ID "S" === ID "_S")
+                                                (callRelation "append" [ID "d", ID "_S", ID "r"])
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            ) 
+
+callExample :: Goal
+callExample = callFresh "T" $ 
+              callFresh "Q" $ 
+              callRelation "append" [
+                                    --  Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") Nil)), 
+                                     ID "T",
+                                     ID "Q",
+                                     Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
+                                        ]
+
+runner :: State Environment [KanrenState]
+runner = do
+    append
+    run 6 callExample
 
 main :: IO ()
 main = do
-    let results = runAll example (initialState)
-    let reified = map (reifyPrint ["q"]) results
+    let results = evalState runner initialEnv
+    let reified = [printSubst $ reify ["T", "Q"] s | s <- results]
     print reified
+
+
 
