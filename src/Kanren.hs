@@ -39,19 +39,18 @@ pretty (ID i) = map toUpper i
 pretty (Var v) = show v
 pretty (Symbol s) = s
 pretty (Bool b) = map toLower $ show b
-pretty Nil = "()" 
+pretty Nil = "()"
 
 type Subst = Map.Map Var Term
 type Bind  = Map.Map String Var
 
 data KanrenState = State {
-                            substitution :: Subst, 
+                            substitution :: Subst,
                             bindings :: Bind,
                             count :: Int
                         } deriving (Show)
 
 type Goal = KanrenState -> State Environment (Logic KanrenState)
-
 
 ---
 -- Environment: define and call relations
@@ -104,47 +103,60 @@ unify _ _ _                       = Nothing
 -- For the subtree, make it so every instance of q is replaced with c
 -- Then for each state in the result stream, restore the original binding
 callFresh :: String -> Goal -> Goal
-callFresh q g = \(State subt bind cnt) -> do
+callFresh q g (State subt bind cnt) = do
     let updated = Map.insert q cnt bind
     stream <- g $ State subt updated (cnt+1)
-
-    let restore b = case Map.lookup q bind of
-            Just t  -> Map.insert q t b
-            Nothing -> b
 
     return $ do
         (State s b c) <- stream
         return $ State s (restore b) c
+    
+    where restore b = case Map.lookup q bind of
+            Just t  -> Map.insert q t b
+            Nothing -> b
 
 -- Concatenate together two streams of states
 disj :: Goal -> Goal -> Goal
-disj g1 g2 = \state -> do
+disj g1 g2 state = do
     s1 <- g1 state
     s2 <- g2 state
     return $ s1 `interleave` s2
 
 -- Apply the second goal to every state in the stream evaluated from first goal, concatenate all results
 conj :: Goal -> Goal -> Goal
-conj g1 g2 = \state -> do
-    s1 <- g1 state 
+conj g1 g2 state = do
+    s1 <- g1 state
     s' <- mapM g2 s1
     return $ fairsum s'
-
--- Re-implementation of msum using the fair `interleave`
-fairsum :: Logic (Logic KanrenState) -> Logic KanrenState
-fairsum = foldr interleave mzero
+    where
+         fairsum :: Logic (Logic KanrenState) -> Logic KanrenState
+         fairsum = foldr interleave mzero
 
 -- Call a previously defined relation
 -- KNOWN BUG: 
 -- If you call a relation with a variable introduced inside a define relation parameter list (recursive relation),
 -- then the algorithm doesnt work, due to naming conflicts. At the moment, defining a new variable and using a 
--- conjunction to add an equality constraint to the intended one seems to work! Where to address this?
+-- conjunction to add an equality constraint to the intended one seems to work! 
+-- FIX:
+-- Can add an extra preprocessing step to callRelation which adds fresh bindings which serve as renamings of all args,
+-- Since variable name does not matter, can use indexing with some prefix that is disallowed in identifiers.
+-- DRAWBACK: 
+-- Is redundant in most cases.
 callRelation :: String -> [Term] -> Goal
-callRelation name args = \state -> do
+callRelation name args = binded $ \state -> do
     Env relations <- get
     case Map.lookup name relations of
-        Just r  -> let g = r args in g state
+        Just r  -> let args' = map ID idents
+                       g = r args'
+                   in g state
         Nothing -> error "Relation not found!"
+
+    where binded goal = foldr callFresh (padded goal) idents
+          padded goal = foldr ($) goal constraints
+
+          constraints = [conj (t === ID i) | (t, i) <- zip args idents]
+
+          idents = ["_" ++ show n | n <- [0..length args]]
 
 ---
 -- Extensions
@@ -165,7 +177,7 @@ conjPlus [] = error "Not possible."
 --- 
 
 initialState :: KanrenState
-initialState = State Map.empty Map.empty 0 
+initialState = State Map.empty Map.empty 0
 
 initialEnv :: Environment
 initialEnv = Env Map.empty
@@ -177,11 +189,11 @@ initialEnv = Env Map.empty
 defineRelation :: String -> [String] -> Goal -> State Environment ()
 defineRelation name idents goal = modify addRelation
     where addRelation (Env e) = Env $ Map.insert name binded e
-                
+
           binded args = foldr callFresh (padded args) idents
           padded args = foldr ($) goal (constraints args)
 
-          constraints args = [conj (t === ID i) | (t, i) <- zip args idents]    
+          constraints args = [conj (t === ID i) | (t, i) <- zip args idents]
 
 
 run :: Int -> Goal -> State Environment [KanrenState]
@@ -190,7 +202,7 @@ run i g = do
     return $ observeMany i stream
 
 runAll :: Goal -> State Environment [KanrenState]
-runAll g = do    
+runAll g = do
     stream <- g initialState
     return $ observeAll stream
 
@@ -201,12 +213,12 @@ runAll g = do
 reify :: [String] -> KanrenState -> [(String, Maybe Term)]
 reify idents (State subst bind _) = zip idents terms
     where terms = map fromString idents
-        
+
           fromString :: String -> Maybe Term
           fromString i = getTerm =<< Map.lookup i bind
 
           getTerm :: Var -> Maybe Term
-          getTerm v = do 
+          getTerm v = do
                 t <- Map.lookup v subst
                 return $ replace t
 
@@ -216,7 +228,7 @@ reify idents (State subst bind _) = zip idents terms
           replace x = x
 
 printSubst :: [(String, Maybe Term)] -> String
-printSubst results = subst 
+printSubst results = subst
     where subst = "{" ++ intercalate ", " r ++ "}"
           r = [printTerm i t | (i, t) <- results]
           printTerm i Nothing  = i ++ ": _"

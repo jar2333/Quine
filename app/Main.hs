@@ -41,12 +41,7 @@ append = defineRelation "append" ["L", "S", "O"] (
                                 (callFresh "r"
                                     (conj
                                         (Pair (ID "a") (ID "r") === ID "O")
-                                        (callFresh "_S"
-                                            (conj
-                                                (ID "S" === ID "_S")
-                                                (callRelation "append" [ID "d", ID "_S", ID "r"])
-                                            )
-                                        )
+                                        (callRelation "append" [ID "d", ID "S", ID "r"])
                                     )
                                 )
                             )
