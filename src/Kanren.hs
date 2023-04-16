@@ -57,7 +57,9 @@ type Goal = KanrenState -> State Environment (Logic KanrenState)
 -- Environment: define and call relations
 ---
 
-newtype Environment = Env (Map.Map String ([Term] -> Goal))
+type Relation = [Term] -> Goal
+
+newtype Environment = Env (Map.Map String Relation)
 
 ---
 -- First-order unification implementation
@@ -72,18 +74,16 @@ occurs x (Var u) _    = x == u
 occurs x (Pair a b) s = occurs x (find a s) s || occurs x (find b s) s
 occurs _ _ _          = False
 
-extendSubst :: Var -> Term -> Subst -> Maybe Subst
-extendSubst x v s | occurs x v s = Nothing
-                  | otherwise    = Just (Map.insert x v s)
+extendSubst :: Var -> Term -> Subst -> Logic Subst
+extendSubst x v s | occurs x v s = mzero
+                  | otherwise    = return (Map.insert x v s)
 
-unify :: Term -> Term -> Subst -> Maybe Subst
-unify u v s | u == v              = Just s
+unify :: Term -> Term -> Subst -> Logic Subst
+unify u v s | u == v              = return s
 unify (Var u) v s                 = extendSubst u v s
 unify u var@(Var _) s             = unify var u s
-unify (Pair ua ub) (Pair va vb) s = do
-    s' <- unify (find ua s) (find va s) s
-    unify (find ub s') (find vb s') s'
-unify _ _ _                       = Nothing
+unify (Pair ua ub) (Pair va vb) s = unify (find ua s) (find va s) s >>= \s' -> unify (find ub s') (find vb s') s'
+unify _ _ _                       = mzero
 
 ---
 -- Goal constructors
@@ -91,10 +91,9 @@ unify _ _ _                       = Nothing
 
 -- Unification constraints
 (===) :: Term -> Term -> Goal
-(===) u v (State s b c) =
-    case unify (find u' s) (find v' s) s of
-        Just s' -> return $ return (State s' b c)
-        Nothing -> return mzero
+(===) u v (State s b c) = return $ do
+    s' <- unify (find u' s) (find v' s) s 
+    return (State s' b c)
     where u' = substID u
           v' = substID v
           substID (ID i) = maybe (error $ i ++ " NOT FOUND") Var (Map.lookup i b)
@@ -108,9 +107,8 @@ callFresh q g (State subt bind cnt) = do
     let updated = Map.insert q cnt bind
     stream <- g $ State subt updated (cnt+1)
 
-    return $ do
-        (State s b c) <- stream
-        return $ State s (restore b) c
+    let restored = stream >>= \(State s b c) -> return $ State s (restore b) c
+    return restored
     
     where restore b = case Map.lookup q bind of
             Just t  -> Map.insert q t b
