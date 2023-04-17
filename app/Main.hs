@@ -5,7 +5,7 @@ import KanrenTerm
 import Print ( printStream )
 import Control.Monad.State
 
-append :: State (Environment KanrenTerm) ()
+append :: Kanren KanrenTerm ()
 append = defineRelation "append" ["L", "S", "O"]
                 (disj
                     (conj
@@ -31,7 +31,7 @@ callExample = fresh ["T", "Q"] $
             Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
         ]
 
-runner :: State (Environment KanrenTerm) (Stream KanrenTerm)
+runner :: Kanren KanrenTerm (Stream KanrenTerm)
 runner = do
     append
     run 6 ["T", "Q"] callExample

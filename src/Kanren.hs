@@ -12,15 +12,15 @@ module Kanren
     , run
     , runAll
     , Goal
-    , KanrenState
     , Environment(..)
     , Stream
+    , Kanren
     ) where
 
 import Data.Map as Map ( insert, lookup, empty, Map )
 
 import Control.Monad ( MonadPlus(mzero) )
-import Control.Monad.State ( MonadState(get), State, modify )
+import Control.Monad.State ( MonadState(get), State, StateT, modify )
 import Control.Monad.Logic ( observeAll, observeMany, MonadLogic(interleave), Logic )
 
 import UTerm
@@ -35,7 +35,13 @@ data KanrenState t = State {
                             count :: Int
                         } deriving (Show)
 
-type Goal t = KanrenState t -> State (Environment t) (Logic (KanrenState t))
+type KanrenStream t = Logic (KanrenState t)
+
+-- type Kanren t m a = StateT (Environment t) m a
+-- Kanren monad
+type Kanren t a = State (Environment t) a
+
+type Goal t = KanrenState t -> Kanren t (KanrenStream t)
 
 ---
 -- Environment: define and call relations
@@ -87,7 +93,7 @@ conj g1 g2 state = do
     s' <- mapM g2 s1
     return $ fairsum s'
 
-    where fairsum :: Logic (Logic (KanrenState t)) -> Logic (KanrenState t)
+    where fairsum :: Logic (KanrenStream t) -> KanrenStream t
           fairsum = foldr interleave mzero
 
 -- Call a previously defined relation
@@ -147,7 +153,7 @@ initialEnv = Env Map.empty
 -- Statements: maintain a global state of defined relations
 ---
 
-defineRelation :: (UTerm t) => String -> [String] -> Goal t -> State (Environment t) ()
+defineRelation :: (UTerm t) => String -> [String] -> Goal t -> Kanren t ()
 defineRelation name idents goal = modify addRelation
     where addRelation (Env e) = Env $ Map.insert name binded e
 
@@ -158,24 +164,24 @@ defineRelation name idents goal = modify addRelation
 
 type Stream t = [[(String, Maybe t)]]
 
-run :: (UTerm t) => Int -> [String] -> Goal t -> State (Environment t) (Stream t)
+run :: (UTerm t) => Int -> [String] -> Goal t -> Kanren t (Stream t)
 run i idents g = do
     stream <- g initialState
     let results = reifyAll idents $ observeMany i stream
     return results
 
 
-runAll :: (UTerm t) => [String] -> Goal t -> State (Environment t) (Stream t)
+runAll :: (UTerm t) => [String] -> Goal t -> Kanren t (Stream t)
 runAll idents g = do
     stream <- g initialState
     let results = reifyAll idents $ observeAll stream
     return results
 
 ---
--- Reifiers
+-- Reifiers (private)
 ---
 
-reifyAll :: (UTerm t) => [String] -> [KanrenState t] -> (Stream t)
+reifyAll :: (UTerm t) => [String] -> [KanrenState t] -> Stream t
 reifyAll idents = map (reify idents)
 
 reify :: (UTerm t) => [String] -> KanrenState t -> [(String, Maybe t)]
