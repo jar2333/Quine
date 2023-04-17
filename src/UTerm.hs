@@ -18,12 +18,12 @@ type USubst t = Map.Map Var t
 class UTerm t where
     pretty :: t -> String 
     substID :: t -> Bind -> t
+    uvar :: String -> t
     unify :: t -> t -> USubst t -> Logic (USubst t)
     replace :: USubst t -> t -> t
+    find :: t -> USubst t -> t    
+
 
     getTerm :: USubst t  -> Var -> Maybe t
     getTerm subst v = Map.lookup v subst >>= return . replace subst
-
-    
-
 

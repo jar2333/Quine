@@ -4,17 +4,17 @@ module Print
 
 import Data.List ( intercalate )
 
-import Kanren
-import Term
+import Kanren ( Stream )
+import UTerm ( UTerm(pretty) )
 
 ---
 -- Print
 ---
 
-printStream :: Stream -> String
+printStream ::(UTerm t) =>  Stream t -> String
 printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
 
-printSubst :: [(String, Maybe Term)] -> String
+printSubst :: (UTerm t) => [(String, Maybe t)] -> String
 printSubst results = subst
     where subst = "{" ++ intercalate ", " pairs ++ "}"
           pairs = [printTerm i t | (i, t) <- results]

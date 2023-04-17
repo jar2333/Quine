@@ -1,22 +1,11 @@
 module Main (main) where
 
 import Kanren
+import KanrenTerm
 import Print ( printStream )
 import Control.Monad.State
 
--- shadowingExample = callFresh "Q" (callFresh "a"
---         (conj 
---             (
---                 (ID "Q" === ID "a")
---             )
---             (callFresh "a"
---                 (ID "a" === Symbol "4")
---             )
---         )
---     )  
-
-
-append :: State Environment ()
+append :: State (Environment KanrenTerm) ()
 append = defineRelation "append" ["L", "S", "O"]
                 (disj
                     (conj
@@ -34,11 +23,11 @@ append = defineRelation "append" ["L", "S", "O"]
                 )
             
 
-callExample :: Goal
+callExample :: Goal KanrenTerm
 callExample = fresh ["T", "Q"] $ callRelation "append" [ ID "T", ID "Q",
                                      Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))]
 
-runner :: State Environment Stream
+runner :: State (Environment KanrenTerm) (Stream KanrenTerm)
 runner = do
     append
     run 6 ["T", "Q"] callExample

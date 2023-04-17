@@ -27,9 +27,9 @@ library
   exposed-modules:
       AST
       Kanren
+      KanrenTerm
       Parse
       Print
-      Term
       UTerm
   other-modules:
       Paths_quine
