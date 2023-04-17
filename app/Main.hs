@@ -24,8 +24,12 @@ append = defineRelation "append" ["L", "S", "O"]
             
 
 callExample :: Goal KanrenTerm
-callExample = fresh ["T", "Q"] $ callRelation "append" [ ID "T", ID "Q",
-                                     Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))]
+callExample = fresh ["T", "Q"] $ 
+    callRelation "append" [ 
+            ID "T", 
+            ID "Q", 
+            Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
+        ]
 
 runner :: State (Environment KanrenTerm) (Stream KanrenTerm)
 runner = do

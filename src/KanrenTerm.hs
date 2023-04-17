@@ -53,7 +53,7 @@ instance UTerm KanrenTerm where
     unify :: KanrenTerm -> KanrenTerm -> Subst -> Logic Subst
     unify u v s | u == v              = return s
     unify (Var u) v s                 = extendSubst u v s
-    unify u var@(Var _) s             = unify var u s
+    unify u v@(Var _) s             = unify v u s
     unify (Pair ua ub) (Pair va vb) s = unify (find ua s) (find va s) s >>= \s' -> unify (find ub s') (find vb s') s'
     unify _ _ _                       = mzero
 
@@ -71,6 +71,11 @@ instance UTerm KanrenTerm where
     -- Wrap the given string as a uvar term.
     uvar :: String -> KanrenTerm
     uvar = ID
+
+    -- Wrap the given Var as a var term.
+    var :: Var -> KanrenTerm
+    var = Var
+
 
 
 ---
