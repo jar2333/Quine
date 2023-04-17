@@ -29,6 +29,7 @@ library
       Kanren
       Parse
       Term
+      Unification
   other-modules:
       Paths_quine
   hs-source-dirs:

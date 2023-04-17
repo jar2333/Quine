@@ -27,11 +27,15 @@ import Control.Monad ( MonadPlus(mzero) )
 import Control.Monad.Logic
 import Control.Monad.State ( MonadState(get), State, modify )
 
-import Term (Term(..), Var, pretty)
+import Term ( Term(..), Var, pretty ) 
+import Unification ( find, unify, Subst )
 
 import Data.List ( intercalate )
 
-type Subst = Map.Map Var Term
+---
+-- State and Goal types
+---
+
 type Bind  = Map.Map String Var
 
 data KanrenState = State {
@@ -49,30 +53,6 @@ type Goal = KanrenState -> State Environment (Logic KanrenState)
 type Relation = [Term] -> Goal
 
 newtype Environment = Env (Map.Map String Relation)
-
----
--- First-order unification implementation
----
-
-find :: Term -> Subst -> Term
-find (Var u) s = Maybe.fromMaybe (Var u) (Map.lookup u s)
-find t _ = t
-
-occurs :: Var -> Term -> Subst -> Bool
-occurs x (Var u) _    = x == u
-occurs x (Pair a b) s = occurs x (find a s) s || occurs x (find b s) s
-occurs _ _ _          = False
-
-extendSubst :: Var -> Term -> Subst -> Logic Subst
-extendSubst x v s | occurs x v s = mzero
-                  | otherwise    = return (Map.insert x v s)
-
-unify :: Term -> Term -> Subst -> Logic Subst
-unify u v s | u == v              = return s
-unify (Var u) v s                 = extendSubst u v s
-unify u var@(Var _) s             = unify var u s
-unify (Pair ua ub) (Pair va vb) s = unify (find ua s) (find va s) s >>= \s' -> unify (find ub s') (find vb s') s'
-unify _ _ _                       = mzero
 
 ---
 -- Goal constructors
