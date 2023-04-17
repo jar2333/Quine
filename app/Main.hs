@@ -16,25 +16,22 @@ import Control.Monad.State
 
 
 append :: State Environment ()
-append = defineRelation "append" ["L", "S", "O"] (
+append = defineRelation "append" ["L", "S", "O"]
                 (disj
                     (conj
                         (Nil === ID "L")
                         (ID "S" === ID "O") 
                     )
-                    (fresh ["a", "d"] 
-                        (conj
-                            (Pair (ID "a") (ID "d") === ID "L")
-                            (fresh ["r"]
-                                (conj
-                                    (Pair (ID "a") (ID "r") === ID "O")
-                                    (callRelation "append" [ID "d", ID "S", ID "r"])
-                                )
-                            )
+                    (fresh ["a", "d", "r"] 
+                        (conjPlus [
+                            (Pair (ID "a") (ID "d") === ID "L"),
+                            (Pair (ID "a") (ID "r") === ID "O"),
+                            (callRelation "append" [ID "d", ID "S", ID "r"])
+                            ]
                         )
                     )
                 )
-            ) 
+            
 
 callExample :: Goal
 callExample = fresh ["T", "Q"] $ callRelation "append" [ ID "T", ID "Q",

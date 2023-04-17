@@ -28,6 +28,7 @@ library
       AST
       Kanren
       Parse
+      Term
   other-modules:
       Paths_quine
   hs-source-dirs:

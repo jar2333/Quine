@@ -27,20 +27,9 @@ import Control.Monad ( MonadPlus(mzero) )
 import Control.Monad.Logic
 import Control.Monad.State ( MonadState(get), State, modify )
 
-import Data.Char ( toUpper, toLower )
+import Term (Term(..), Var, pretty)
+
 import Data.List ( intercalate )
-
-type Var = Int
-
-data Term = ID String | Var Var | Symbol String | Bool Bool | Nil | Pair Term Term deriving (Eq, Show)
-
-pretty :: Term -> String
-pretty (Pair t1 t2) = "(" ++ pretty t1 ++ ", " ++ pretty t2 ++ ")"
-pretty (ID i) = map toUpper i
-pretty (Var v) = show v
-pretty (Symbol s) = s
-pretty (Bool b) = map toLower $ show b
-pretty Nil = "()"
 
 type Subst = Map.Map Var Term
 type Bind  = Map.Map String Var
