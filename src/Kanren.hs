@@ -54,14 +54,14 @@ newtype Environment t = Env (Map.Map String (Relation t))
 (===) u v (State s b c) = return $ do
     s' <- unify (find u' s) (find v' s) s 
     return (State s' b c)
-    where u' = substID u b
-          v' = substID v b
+    where u' = substUvar u b
+          v' = substUvar v b
 
 -- For the subtree, make it so every instance of q is replaced with cnt
 -- Then for each state in the result stream, restore the original binding.
 -- This makes it so that the states in the resulting stream only have the 
 -- topmost binding for any shadowed variables.
-callFresh :: (UTerm t) => String -> Goal t -> Goal t
+callFresh :: String -> Goal t -> Goal t
 callFresh q g (State subt bind cnt) = do
     let updated = Map.insert q cnt bind
     stream <- g $ State subt updated (cnt+1)
@@ -74,14 +74,14 @@ callFresh q g (State subt bind cnt) = do
             Nothing -> b
 
 -- Concatenate together two streams of states
-disj :: (UTerm t) => Goal t -> Goal t -> Goal t
+disj :: Goal t -> Goal t -> Goal t
 disj g1 g2 state = do
     s1 <- g1 state
     s2 <- g2 state
     return $ s1 `interleave` s2
 
 -- Apply the second goal to every state in the stream evaluated from first goal, concatenate all results
-conj :: (UTerm t) => Goal t -> Goal t -> Goal t
+conj :: Goal t -> Goal t -> Goal t
 conj g1 g2 state = do
     s1 <- g1 state
     s' <- mapM g2 s1
@@ -130,7 +130,7 @@ conjPlus [g]    = g
 conjPlus (g:gs) = conj g (conjPlus gs)
 conjPlus [] = error "Not possible."
 
-fresh :: (UTerm t) => [String] -> Goal t -> Goal t
+fresh :: [String] -> Goal t -> Goal t
 fresh idents g = foldr callFresh g idents
 
 ---

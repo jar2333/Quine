@@ -3,7 +3,7 @@
 module KanrenTerm
     ( KanrenTerm(..)
     , pretty
-    , substID
+    , substUvar
     , unify
     , getTerm
     , replace
@@ -34,6 +34,7 @@ type Subst = USubst KanrenTerm
 ---
 
 instance UTerm KanrenTerm where
+    -- Pretty-print the term.
     pretty :: KanrenTerm -> String
     pretty (Pair t1 t2) = "(" ++ pretty t1 ++ ", " ++ pretty t2 ++ ")"
     pretty (ID i) = map toUpper i
@@ -42,11 +43,13 @@ instance UTerm KanrenTerm where
     pretty (Bool b) = map toLower $ show b
     pretty Nil = "()"
 
-    substID :: KanrenTerm -> Bind -> KanrenTerm
-    substID (ID i) b = maybe (error $ i ++ " NOT FOUND") Var (Map.lookup i b)
-    substID (Pair t1 t2) b = Pair (substID t1 b) (substID t2 b)
-    substID x _ = x
+    -- Substitute every uvar subterm which can be found in a binding map with the corresponding var.
+    substUvar :: KanrenTerm -> Bind -> KanrenTerm
+    substUvar (ID i) b = maybe (error $ i ++ " NOT FOUND") Var (Map.lookup i b)
+    substUvar (Pair t1 t2) b = Pair (substUvar t1 b) (substUvar t2 b)
+    substUvar x _ = x
 
+    -- Find a stream of substitutions that can unify the two terms given a base substitution.
     unify :: KanrenTerm -> KanrenTerm -> Subst -> Logic Subst
     unify u v s | u == v              = return s
     unify (Var u) v s                 = extendSubst u v s
@@ -54,15 +57,18 @@ instance UTerm KanrenTerm where
     unify (Pair ua ub) (Pair va vb) s = unify (find ua s) (find va s) s >>= \s' -> unify (find ub s') (find vb s') s'
     unify _ _ _                       = mzero
 
-    replace :: Subst -> KanrenTerm -> KanrenTerm
-    replace subst (Var v) = fromMaybe (ID "_") (getTerm subst v) -- If no substitution exists, any answer suffices!
-    replace subst (Pair t1 t2) = Pair (replace subst t1) (replace subst t2)
-    replace _ x = x
+    -- Use a substitution to replace each uvar subterm with the corresponding term in the substitution
+    replace ::  KanrenTerm -> Subst -> KanrenTerm
+    replace (Var v) subst = fromMaybe (ID "_") (getTerm subst v) -- If no substitution exists, any answer suffices!
+    replace (Pair t1 t2) subst = Pair (replace t1 subst) (replace t2 subst)
+    replace x _ = x
 
+    -- Find term corredponding to a uvar term, return itself on failure or if not a uvar term.
     find :: KanrenTerm -> Subst -> KanrenTerm
     find (Var u) s = Maybe.fromMaybe (Var u) (Map.lookup u s)
     find t _ = t
 
+    -- Wrap the given string as a uvar term.
     uvar :: String -> KanrenTerm
     uvar = ID
 
