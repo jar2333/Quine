@@ -1,6 +1,7 @@
 module Main (main) where
 
 import Kanren
+import Print ( printStream )
 import Control.Monad.State
 
 -- shadowingExample = callFresh "Q" (callFresh "a"

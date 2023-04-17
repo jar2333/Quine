@@ -11,7 +11,6 @@ module Kanren
     , defineRelation
     , run
     , runAll
-    , printStream
     , Term(..)
     , Goal
     , KanrenState
@@ -19,17 +18,14 @@ module Kanren
     , Stream
     ) where
 
-
 import Data.Map as Map ( insert, lookup, empty, Map )
 
 import Control.Monad ( MonadPlus(mzero) )
-import Control.Monad.Logic
 import Control.Monad.State ( MonadState(get), State, modify )
+import Control.Monad.Logic ( observeAll, observeMany, MonadLogic(interleave), Logic )
 
-import Term 
-import Unification 
-
-import Data.List ( intercalate )
+import UTerm
+import Term
 
 ---
 -- State and Goal types
@@ -92,9 +88,9 @@ conj g1 g2 state = do
     s1 <- g1 state
     s' <- mapM g2 s1
     return $ fairsum s'
-    where
-         fairsum :: Logic (Logic KanrenState) -> Logic KanrenState
-         fairsum = foldr interleave mzero
+
+    where fairsum :: Logic (Logic KanrenState) -> Logic KanrenState
+          fairsum = foldr interleave mzero
 
 -- Call a previously defined relation
 -- KNOWN BUG: 
@@ -191,17 +187,3 @@ reify idents (State subst bind _) = zip idents terms
           fromString :: String -> Maybe Term
           fromString i = Map.lookup i bind >>= getTerm subst
 
-
----
--- Print
----
-
-printStream :: Stream -> String
-printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
-
-printSubst :: [(String, Maybe Term)] -> String
-printSubst results = subst
-    where subst = "{" ++ intercalate ", " pairs ++ "}"
-          pairs = [printTerm i t | (i, t) <- results]
-          printTerm i Nothing  = i ++ ": _"
-          printTerm i (Just t) = i ++ ": " ++ pretty t

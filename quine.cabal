@@ -28,8 +28,9 @@ library
       AST
       Kanren
       Parse
+      Print
       Term
-      Unification
+      UTerm
   other-modules:
       Paths_quine
   hs-source-dirs:
