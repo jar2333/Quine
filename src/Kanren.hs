@@ -11,17 +11,16 @@ module Kanren
     , defineRelation
     , run
     , runAll
-    , reifyAll
     , printStream
     , Term(..)
     , Goal
     , KanrenState
     , Environment(..)
+    , Stream
     ) where
 
 
 import Data.Map as Map ( insert, lookup, empty, Map )
-import Data.Maybe as Maybe ( fromMaybe )
 
 import Control.Monad ( MonadPlus(mzero) )
 import Control.Monad.Logic
@@ -163,41 +162,42 @@ defineRelation name idents goal = modify addRelation
 
           constraints args = [t === ID i| (t, i) <- zip args idents]
 
+type Stream = [[(String, Maybe Term)]]
 
-run :: Int -> Goal -> State Environment [KanrenState]
-run i g = do
+run :: Int -> [String] -> Goal -> State Environment Stream
+run i idents g = do
     stream <- g initialState
-    return $ observeMany i stream
+    let results = reifyAll idents $ observeMany i stream
+    return results
 
-runAll :: Goal -> State Environment [KanrenState]
-runAll g = do
+
+runAll :: [String] -> Goal -> State Environment Stream
+runAll idents g = do
     stream <- g initialState
-    return $ observeAll stream
+    let results = reifyAll idents $ observeAll stream
+    return results
 
 ---
 -- Reifiers
 ---
 
-reifyAll :: [String] -> [KanrenState] -> [[(String, Maybe Term)]]
+reifyAll :: [String] -> [KanrenState] -> Stream
 reifyAll idents = map (reify idents)
-
-printStream :: [[(String, Maybe Term)]] -> String
-printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
 
 reify :: [String] -> KanrenState -> [(String, Maybe Term)]
 reify idents (State subst bind _) = zip idents terms
     where terms = map fromString idents
 
           fromString :: String -> Maybe Term
-          fromString i = Map.lookup i bind >>= getTerm
+          fromString i = Map.lookup i bind >>= getTerm subst
 
-          getTerm :: Var -> Maybe Term
-          getTerm v = Map.lookup v subst >>= return . replace
 
-          replace :: Term -> Term
-          replace (Var v) = fromMaybe (ID "_") (getTerm v) -- If no substitution exists, any answer suffices!
-          replace (Pair t1 t2) = Pair (replace t1) (replace t2)
-          replace x = x
+---
+-- Print
+---
+
+printStream :: Stream -> String
+printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
 
 printSubst :: [(String, Maybe Term)] -> String
 printSubst results = subst

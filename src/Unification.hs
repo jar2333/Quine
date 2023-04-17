@@ -2,6 +2,7 @@ module Unification
     ( Subst
     , unify
     , find
+    , getTerm
     ) where
 
 import Data.Map as Map ( insert, lookup, Map )
@@ -17,6 +18,14 @@ import Term
 ---
 
 type Subst = Map.Map Var Term
+
+getTerm :: Subst -> Var -> Maybe Term
+getTerm subst v = Map.lookup v subst >>= return . replace subst
+
+replace :: Subst -> Term -> Term
+replace subst (Var v) = fromMaybe (ID "_") (getTerm subst v) -- If no substitution exists, any answer suffices!
+replace subst (Pair t1 t2) = Pair (replace subst t1) (replace subst t2)
+replace _ x = x
 
 ---
 -- First-order unification implementation

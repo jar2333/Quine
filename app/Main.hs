@@ -37,16 +37,12 @@ callExample :: Goal
 callExample = fresh ["T", "Q"] $ callRelation "append" [ ID "T", ID "Q",
                                      Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))]
 
-runner :: State Environment [KanrenState]
+runner :: State Environment Stream
 runner = do
     append
-    run 6 callExample
+    run 6 ["T", "Q"] callExample
 
 main :: IO ()
 main = do
     let results = evalState runner initialEnv
-    let reified = printStream $ reifyAll ["T", "Q"] results
-    print reified
-
-
-
+    print $ printStream results
