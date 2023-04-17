@@ -4,7 +4,7 @@ module Unification
     , find
     ) where
 
-import Data.Map as Map ( insert, lookup, empty, Map )
+import Data.Map as Map ( insert, lookup, Map )
 import Data.Maybe as Maybe ( fromMaybe )
 
 import Control.Monad ( MonadPlus(mzero) )

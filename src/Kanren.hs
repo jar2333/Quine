@@ -27,16 +27,14 @@ import Control.Monad ( MonadPlus(mzero) )
 import Control.Monad.Logic
 import Control.Monad.State ( MonadState(get), State, modify )
 
-import Term ( Term(..), Var, pretty ) 
-import Unification ( find, unify, Subst )
+import Term 
+import Unification 
 
 import Data.List ( intercalate )
 
 ---
 -- State and Goal types
 ---
-
-type Bind  = Map.Map String Var
 
 data KanrenState = State {
                             substitution :: Subst,
@@ -63,14 +61,13 @@ newtype Environment = Env (Map.Map String Relation)
 (===) u v (State s b c) = return $ do
     s' <- unify (find u' s) (find v' s) s 
     return (State s' b c)
-    where u' = substID u
-          v' = substID v
-          substID (ID i) = maybe (error $ i ++ " NOT FOUND") Var (Map.lookup i b)
-          substID (Pair t1 t2) = Pair (substID t1) (substID t2)
-          substID x = x
+    where u' = substID u b
+          v' = substID v b
 
 -- For the subtree, make it so every instance of q is replaced with cnt
--- Then for each state in the result stream, restore the original binding
+-- Then for each state in the result stream, restore the original binding.
+-- This makes it so that the states in the resulting stream only have the 
+-- topmost binding for any shadowed variables.
 callFresh :: String -> Goal -> Goal
 callFresh q g (State subt bind cnt) = do
     let updated = Map.insert q cnt bind
