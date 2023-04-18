@@ -10,91 +10,104 @@ module Kanren
     , initialEnv
     , defineRelation
     , run
+    , runMany
     , runAll
-    , printStream
-    , Term(..)
     , Goal
-    , KanrenState
     , Environment(..)
     , Stream
+    , Kanren
+    , KanrenT
     ) where
 
+import Data.Map as Map ( insert, lookup, empty, foldrWithKey, Map )
 
-import Data.Map as Map ( insert, lookup, empty, Map )
+import Control.Monad.State ( MonadState(get), StateT, modify, evalState )
+import Control.Monad.Logic ( observe, observeAll, observeMany, MonadLogic(interleave), Logic )
+import Control.Monad.Identity ( MonadPlus(mzero), Identity )
 
-import Control.Monad ( MonadPlus(mzero) )
-import Control.Monad.Logic
-import Control.Monad.State ( MonadState(get), State, modify )
-
-import Term 
-import Unification 
-
-import Data.List ( intercalate )
+import UTerm
 
 ---
--- State and Goal types
+-- State type
 ---
 
-data KanrenState = State {
-                            substitution :: Subst,
+data KanrenState t = State {
+                            substitution :: USubst t,
                             bindings :: Bind,
                             count :: Int
                         } deriving (Show)
 
-type Goal = KanrenState -> State Environment (Logic KanrenState)
+type KanrenStream t = Logic (KanrenState t)
+
+---
+-- Kanren monad
+---
+
+type KanrenT t m a = StateT (Environment t) m a
+
+type Kanren t a = KanrenT t Identity a
+
+---
+-- Goal type
+---
+
+type Goal t = KanrenState t -> Kanren t (KanrenStream t)
 
 ---
 -- Environment: define and call relations
 ---
 
-type Relation = [Term] -> Goal
-
-newtype Environment = Env (Map.Map String Relation)
+newtype Environment t = Env (Map.Map String ([t] -> Goal t))
 
 ---
 -- Goal constructors
 ---
 
 -- Unification constraints
-(===) :: Term -> Term -> Goal
+(===) :: (UTerm t) => t -> t -> Goal t
 (===) u v (State s b c) = return $ do
     s' <- unify (find u' s) (find v' s) s 
     return (State s' b c)
-    where u' = substID u b
-          v' = substID v b
+    where u' = substUvar u b
+          v' = substUvar v b
+
+          -- Substitute every uvar subterm in the given term which can be found in a binding map with the corresponding var.
+          substUvar :: (UTerm t) => t -> Bind -> t
+          substUvar term bindings = foldrWithKey (\q v t -> substitute (var v) q t) term bindings
 
 -- For the subtree, make it so every instance of q is replaced with cnt
 -- Then for each state in the result stream, restore the original binding.
 -- This makes it so that the states in the resulting stream only have the 
 -- topmost binding for any shadowed variables.
-callFresh :: String -> Goal -> Goal
+callFresh :: String -> Goal t -> Goal t
 callFresh q g (State subt bind cnt) = do
     let updated = Map.insert q cnt bind
     stream <- g $ State subt updated (cnt+1)
-
-    let restored = stream >>= \(State s b c) -> return $ State s (restore b) c
-    return restored
+    return $ restore stream
     
-    where restore b = case Map.lookup q bind of
+    where restore stream = do 
+            (State s b c) <- stream 
+            return $ State s (restoreBind b) c
+          restoreBind b = case Map.lookup q bind of
             Just t  -> Map.insert q t b
             Nothing -> b
 
 -- Concatenate together two streams of states
-disj :: Goal -> Goal -> Goal
+disj :: Goal t -> Goal t -> Goal t
 disj g1 g2 state = do
     s1 <- g1 state
     s2 <- g2 state
     return $ s1 `interleave` s2
 
 -- Apply the second goal to every state in the stream evaluated from first goal, concatenate all results
-conj :: Goal -> Goal -> Goal
+conj :: Goal t -> Goal t -> Goal t
 conj g1 g2 state = do
     s1 <- g1 state
     s' <- mapM g2 s1
     return $ fairsum s'
-    where
-         fairsum :: Logic (Logic KanrenState) -> Logic KanrenState
-         fairsum = foldr interleave mzero
+
+    where fairsum :: Logic (KanrenStream t) -> KanrenStream t
+          fairsum = foldr interleave mzero
 
 -- Call a previously defined relation
 -- KNOWN BUG: 
@@ -106,11 +119,11 @@ conj g1 g2 state = do
 -- Since variable name does not matter, can use indexing with some prefix that is disallowed in identifiers.
 -- DRAWBACK: 
 -- Is redundant in most cases.
-callRelation :: String -> [Term] -> Goal
+callRelation :: (UTerm t) => String -> [t] -> Goal t
 callRelation name args = binded $ \state -> do
     Env relations <- get
     case Map.lookup name relations of
-        Just r  -> let args' = map ID idents
+        Just r  -> let args' = map uvar idents
                        g = r args'
                    in g state
         Nothing -> error "Relation not found!"
@@ -118,7 +131,7 @@ callRelation name args = binded $ \state -> do
     where binded goal = fresh idents $ padded goal
           padded goal = conj goal $ conjPlus constraints
 
-          constraints = [t === ID i| (t, i) <- zip args idents]
+          constraints = [t === uvar i| (t, i) <- zip args idents]
 
           idents = ["_" ++ show n | n <- [0..length args]]
 
@@ -126,82 +139,78 @@ callRelation name args = binded $ \state -> do
 -- Extensions
 ---
 
-disjPlus :: [Goal] -> Goal
+disjPlus :: (UTerm t) => [Goal t] -> Goal t
 disjPlus [g]    = g
 disjPlus (g:gs) = disj g (disjPlus gs)
 disjPlus [] = error "Not possible."
 
-conjPlus :: [Goal] -> Goal
+conjPlus :: (UTerm t) => [Goal t] -> Goal t
 conjPlus [g]    = g
 conjPlus (g:gs) = conj g (conjPlus gs)
 conjPlus [] = error "Not possible."
 
-fresh :: [String] -> Goal -> Goal
+fresh :: [String] -> Goal t -> Goal t
 fresh idents g = foldr callFresh g idents
 
 ---
 -- Initial state
 --- 
 
-initialState :: KanrenState
+initialState :: KanrenState t
 initialState = State Map.empty Map.empty 0
 
-initialEnv :: Environment
+initialEnv :: Environment t
 initialEnv = Env Map.empty
 
 ---
--- Statements: maintain a global state of defined relations
+-- Statements: Maintain a global state of defined relations. Uses KanrenT monad transformer to add IO actions!
 ---
 
-defineRelation :: String -> [String] -> Goal -> State Environment ()
+defineRelation :: (UTerm t, Monad m) => String -> [String] -> Goal t -> KanrenT t m ()
 defineRelation name idents goal = modify addRelation
     where addRelation (Env e) = Env $ Map.insert name binded e
 
           binded args = fresh idents $ padded args
           padded args = conj goal $ conjPlus $ constraints args
 
-          constraints args = [t === ID i| (t, i) <- zip args idents]
+          constraints args = [t === uvar i| (t, i) <- zip args idents]
 
-type Stream = [[(String, Maybe Term)]]
+type Stream t = [[(String, Maybe t)]]
 
-run :: Int -> [String] -> Goal -> State Environment Stream
-run i idents g = do
-    stream <- g initialState
-    let results = reifyAll idents $ observeMany i stream
-    return results
+run :: (UTerm t, Monad m) => [String] -> Goal t -> KanrenT t m (Stream t)
+run idents g = do
+    env <- get
+    let stream = evalState (g initialState) env
+    let results = [observe stream]
+    let reified = reifyAll idents results
+    return reified 
+
+runMany :: (UTerm t, Monad m) => Int -> [String] -> Goal t -> KanrenT t m (Stream t)
+runMany i idents g = do
+    env <- get
+    let stream = evalState (g initialState) env
+    let results = observeMany i stream
+    let reified = reifyAll idents results
+    return reified 
 
 
-runAll :: [String] -> Goal -> State Environment Stream
+runAll :: (UTerm t, Monad m) => [String] -> Goal t -> KanrenT t m (Stream t)
 runAll idents g = do
-    stream <- g initialState
-    let results = reifyAll idents $ observeAll stream
-    return results
+    env <- get
+    let stream = evalState (g initialState) env
+    let results = observeAll stream
+    let reified = reifyAll idents results
+    return reified 
 
 ---
--- Reifiers
+-- Reifiers (private)
 ---
 
-reifyAll :: [String] -> [KanrenState] -> Stream
+reifyAll :: (UTerm t) => [String] -> [KanrenState t] -> Stream t
 reifyAll idents = map (reify idents)
 
-reify :: [String] -> KanrenState -> [(String, Maybe Term)]
+reify :: (UTerm t) => [String] -> KanrenState t -> [(String, Maybe t)]
 reify idents (State subst bind _) = zip idents terms
     where terms = map fromString idents
-
-          fromString :: String -> Maybe Term
           fromString i = Map.lookup i bind >>= getTerm subst
 
-
----
--- Print
----
-
-printStream :: Stream -> String
-printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
-
-printSubst :: [(String, Maybe Term)] -> String
-printSubst results = subst
-    where subst = "{" ++ intercalate ", " pairs ++ "}"
-          pairs = [printTerm i t | (i, t) <- results]
-          printTerm i Nothing  = i ++ ": _"
-          printTerm i (Just t) = i ++ ": " ++ pretty t

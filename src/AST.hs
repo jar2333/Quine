@@ -11,7 +11,7 @@ type UVar = String
 type Var = String
 
 data Statement = Rule ID [UVar] Goal
-               | Query (Maybe Int) Goal
+               | Query (Maybe Int) [UVar] Goal
 
 data Arg = Param UVar
          | Term Term
@@ -20,7 +20,7 @@ data Goal = Disj Goal Goal
           | Conj Goal Goal
           | Fresh [UVar] Goal
           | Equal Term Term
-          | Relation ID [Arg] Goal
+          | Relation ID [Arg]
 
 data Term = UVar UVar
           | Var Var

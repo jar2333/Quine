@@ -1,21 +1,11 @@
 module Main (main) where
 
 import Kanren
+import KanrenTerm
+import Print ( printStream )
 import Control.Monad.State
 
--- shadowingExample = callFresh "Q" (callFresh "a"
---         (conj 
---             (
---                 (ID "Q" === ID "a")
---             )
---             (callFresh "a"
---                 (ID "a" === Symbol "4")
---             )
---         )
---     )  
-
-
-append :: State Environment ()
+append :: KanrenT KanrenTerm IO ()
 append = defineRelation "append" ["L", "S", "O"]
                 (disj
                     (conj
@@ -33,16 +23,34 @@ append = defineRelation "append" ["L", "S", "O"]
                 )
             
 
-callExample :: Goal
-callExample = fresh ["T", "Q"] $ callRelation "append" [ ID "T", ID "Q",
-                                     Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))]
+callExample :: Goal KanrenTerm
+callExample = fresh ["T", "Q"] $ 
+    callRelation "append" [ 
+            ID "T", 
+            ID "Q", 
+            Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
+        ]
 
-runner :: State Environment Stream
+
+callExample2 :: Goal KanrenTerm
+callExample2 = fresh ["Q"] $ 
+    callRelation "append" [ 
+            Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") Nil)),
+            ID "Q", 
+            Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
+        ]
+
+
+runner :: KanrenT KanrenTerm IO ()
 runner = do
     append
-    run 6 ["T", "Q"] callExample
+
+    r <- runMany 6 ["T", "Q"] callExample
+    liftIO $ putStrLn $ printStream r
+
+    r <- run ["Q"] callExample2
+    liftIO $ putStrLn $ printStream r
+
 
 main :: IO ()
-main = do
-    let results = evalState runner initialEnv
-    print $ printStream results
+main = evalStateT runner initialEnv

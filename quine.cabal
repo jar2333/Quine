@@ -27,9 +27,11 @@ library
   exposed-modules:
       AST
       Kanren
+      KanrenTerm
       Parse
-      Term
-      Unification
+      Print
+      Translator
+      UTerm
   other-modules:
       Paths_quine
   hs-source-dirs:
