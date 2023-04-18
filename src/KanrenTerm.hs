@@ -3,7 +3,6 @@
 module KanrenTerm
     ( KanrenTerm(..)
     , pretty
-    , substUvar
     , unify
     , getTerm
     , replace
@@ -43,17 +42,18 @@ instance UTerm KanrenTerm where
     pretty (Bool b) = map toLower $ show b
     pretty Nil = "()"
 
-    -- Substitute every uvar subterm which can be found in a binding map with the corresponding var.
-    substUvar :: KanrenTerm -> Bind -> KanrenTerm
-    substUvar (ID i) b = maybe (error $ i ++ " NOT FOUND") Var (Map.lookup i b)
-    substUvar (Pair t1 t2) b = Pair (substUvar t1 b) (substUvar t2 b)
-    substUvar x _ = x
+    -- subst N x M = M[x := N] 
+    -- Substitute all instances of a uvar x with N in M
+    substitute :: KanrenTerm -> String -> KanrenTerm -> KanrenTerm
+    substitute n x (Pair m1 m2) = Pair (substitute n x m1) (substitute n x m2)
+    substitute n x (ID i) | i == x = n
+    substitute _ _ m = m
 
     -- Find a stream of substitutions that can unify the two terms given a base substitution.
     unify :: KanrenTerm -> KanrenTerm -> Subst -> Logic Subst
     unify u v s | u == v              = return s
     unify (Var u) v s                 = extendSubst u v s
-    unify u v@(Var _) s             = unify v u s
+    unify u v@(Var _) s               = unify v u s
     unify (Pair ua ub) (Pair va vb) s = unify (find ua s) (find va s) s >>= \s' -> unify (find ub s') (find vb s') s'
     unify _ _ _                       = mzero
 

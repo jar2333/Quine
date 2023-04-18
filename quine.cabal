@@ -30,6 +30,7 @@ library
       KanrenTerm
       Parse
       Print
+      Translator
       UTerm
   other-modules:
       Paths_quine

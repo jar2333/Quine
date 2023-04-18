@@ -19,7 +19,7 @@ module Kanren
     , KanrenT
     ) where
 
-import Data.Map as Map ( insert, lookup, empty, Map )
+import Data.Map as Map ( insert, lookup, empty, foldrWithKey, Map )
 
 import Control.Monad.State ( MonadState(get), StateT, modify, evalState )
 import Control.Monad.Logic ( observe, observeAll, observeMany, MonadLogic(interleave), Logic )
@@ -71,6 +71,10 @@ newtype Environment t = Env (Map.Map String ([t] -> Goal t))
     where u' = substUvar u b
           v' = substUvar v b
 
+          -- Substitute every uvar subterm in the given term which can be found in a binding map with the corresponding var.
+          substUvar :: (UTerm t) => t -> Bind -> t
+          substUvar term bindings = foldrWithKey (\q v t -> substitute (var v) q t) term bindings
+
 -- For the subtree, make it so every instance of q is replaced with cnt
 -- Then for each state in the result stream, restore the original binding.
 -- This makes it so that the states in the resulting stream only have the 
@@ -79,11 +83,12 @@ callFresh :: String -> Goal t -> Goal t
 callFresh q g (State subt bind cnt) = do
     let updated = Map.insert q cnt bind
     stream <- g $ State subt updated (cnt+1)
-
-    let restored = do {(State s b c) <- stream ; return $ State s (restore b) c}
-    return restored
+    return $ restore stream
     
-    where restore b = case Map.lookup q bind of
+    where restore stream = do 
+            (State s b c) <- stream 
+            return $ State s (restoreBind b) c
+          restoreBind b = case Map.lookup q bind of
             Just t  -> Map.insert q t b
             Nothing -> b
 
