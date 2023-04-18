@@ -1,16 +1,14 @@
 module Translator 
     ( translateStatement
-    , translateGoal
-    , translateTerm 
     ) where
 
 import AST
 import Kanren
 import UTerm
 
-type Executable t = Either (KanrenT t IO ()) (KanrenT t IO (Stream t))
+type Statement t = Either (KanrenT t IO ()) (KanrenT t IO (Stream t))
 
-translateStatement :: (UTerm t) => AST.Statement -> Executable t
+translateStatement :: (UTerm t) => AST.Statement -> Translator.Statement t
 translateStatement (Rule name idents goal)      = Left $ defineRelation name idents (translateGoal goal)
 translateStatement (Query Nothing idents goal)  = Right $ runAll idents (translateGoal goal) -- Replace with run?
 translateStatement (Query (Just i) idents goal) = Right $ runMany i idents (translateGoal goal)
