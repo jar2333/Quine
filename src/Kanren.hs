@@ -15,18 +15,19 @@ module Kanren
     , Environment(..)
     , Stream
     , Kanren
+    , KanrenT
     ) where
 
 import Data.Map as Map ( insert, lookup, empty, Map )
 
-import Control.Monad ( MonadPlus(mzero) )
-import Control.Monad.State ( MonadState(get), State, StateT, modify )
+import Control.Monad.State ( MonadState(get), StateT, modify, evalState )
 import Control.Monad.Logic ( observeAll, observeMany, MonadLogic(interleave), Logic )
+import Control.Monad.Identity ( MonadPlus(mzero), Identity )
 
 import UTerm
 
 ---
--- State and Goal types
+-- State type
 ---
 
 data KanrenState t = State {
@@ -37,9 +38,17 @@ data KanrenState t = State {
 
 type KanrenStream t = Logic (KanrenState t)
 
--- type Kanren t m a = StateT (Environment t) m a
+---
 -- Kanren monad
-type Kanren t a = State (Environment t) a
+---
+
+type KanrenT t m a = StateT (Environment t) m a
+
+type Kanren t a = KanrenT t Identity a
+
+---
+-- Goal type
+---
 
 type Goal t = KanrenState t -> Kanren t (KanrenStream t)
 
@@ -47,9 +56,7 @@ type Goal t = KanrenState t -> Kanren t (KanrenStream t)
 -- Environment: define and call relations
 ---
 
-type Relation t = [t] -> Goal t
-
-newtype Environment t = Env (Map.Map String (Relation t))
+newtype Environment t = Env (Map.Map String ([t] -> Goal t))
 
 ---
 -- Goal constructors
@@ -72,7 +79,7 @@ callFresh q g (State subt bind cnt) = do
     let updated = Map.insert q cnt bind
     stream <- g $ State subt updated (cnt+1)
 
-    let restored = stream >>= \(State s b c) -> return $ State s (restore b) c
+    let restored = do {(State s b c) <- stream ; return $ State s (restore b) c}
     return restored
     
     where restore b = case Map.lookup q bind of
@@ -150,10 +157,10 @@ initialEnv :: Environment t
 initialEnv = Env Map.empty
 
 ---
--- Statements: maintain a global state of defined relations
+-- Statements: Maintain a global state of defined relations. Uses KanrenT monad transformer to add IO actions!
 ---
 
-defineRelation :: (UTerm t) => String -> [String] -> Goal t -> Kanren t ()
+defineRelation :: (UTerm t, Monad m) => String -> [String] -> Goal t -> KanrenT t m ()
 defineRelation name idents goal = modify addRelation
     where addRelation (Env e) = Env $ Map.insert name binded e
 
@@ -164,16 +171,18 @@ defineRelation name idents goal = modify addRelation
 
 type Stream t = [[(String, Maybe t)]]
 
-run :: (UTerm t) => Int -> [String] -> Goal t -> Kanren t (Stream t)
+run :: (UTerm t, Monad m) => Int -> [String] -> Goal t -> KanrenT t m (Stream t)
 run i idents g = do
-    stream <- g initialState
+    env <- get
+    let stream = evalState (g initialState) env
     let results = reifyAll idents $ observeMany i stream
     return results
 
 
-runAll :: (UTerm t) => [String] -> Goal t -> Kanren t (Stream t)
+runAll :: (UTerm t, Monad m) => [String] -> Goal t -> KanrenT t m (Stream t)
 runAll idents g = do
-    stream <- g initialState
+    env <- get
+    let stream = evalState (g initialState) env
     let results = reifyAll idents $ observeAll stream
     return results
 

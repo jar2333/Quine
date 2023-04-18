@@ -5,7 +5,7 @@ import KanrenTerm
 import Print ( printStream )
 import Control.Monad.State
 
-append :: Kanren KanrenTerm ()
+append :: KanrenT KanrenTerm IO ()
 append = defineRelation "append" ["L", "S", "O"]
                 (disj
                     (conj
@@ -31,12 +31,24 @@ callExample = fresh ["T", "Q"] $
             Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
         ]
 
-runner :: Kanren KanrenTerm (Stream KanrenTerm)
+
+callExample2 :: Goal KanrenTerm
+callExample2 = fresh ["Q"] $ 
+    callRelation "append" [ 
+            Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") Nil)),
+            ID "Q", 
+            Pair (Symbol "t") (Pair (Symbol "u") (Pair (Symbol "v") (Pair (Symbol "w") (Pair (Symbol "x") Nil))))
+        ]
+
+
+runner :: KanrenT KanrenTerm IO ()
 runner = do
     append
-    run 6 ["T", "Q"] callExample
+    r <- run 4 ["T", "Q"] callExample
+    liftIO $ putStrLn $ printStream r
+    -- r <- run 2 ["Q"] callExample2
+    -- liftIO $ putStrLn $ printStream r
+
 
 main :: IO ()
-main = do
-    let results = evalState runner initialEnv
-    print $ printStream results
+main = evalStateT runner initialEnv
