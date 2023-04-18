@@ -15,13 +15,14 @@ type Var = Int
 type Bind = Map.Map String Var
 type USubst t = Map.Map Var t 
 
-class UTerm t where
+class (Show t, Eq t) => UTerm t where
     ---
     -- Pretty-print term
     ---
 
-    -- Pretty-print the term.
+    -- Pretty-print the term. By default, is show.
     pretty :: t -> String 
+    pretty = show
 
     ---
     -- Wrapper functions
@@ -46,9 +47,11 @@ class UTerm t where
     ---
 
     -- Find a stream of substitutions that can unify the two terms given a base substitution.
+    -- Signature comes from microKanren paper.
     unify :: t -> t -> USubst t -> Logic (USubst t)
 
     -- Find term corredponding to a uvar term, return itself on failure or if not a uvar term.
+    -- Behavior and signature comes from microKanren paper.
     find :: t -> USubst t -> t    
 
     ---
