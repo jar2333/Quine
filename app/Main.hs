@@ -44,10 +44,12 @@ callExample2 = fresh ["Q"] $
 runner :: KanrenT KanrenTerm IO ()
 runner = do
     append
-    r <- run 4 ["T", "Q"] callExample
+
+    r <- runMany 6 ["T", "Q"] callExample
     liftIO $ putStrLn $ printStream r
-    -- r <- run 2 ["Q"] callExample2
-    -- liftIO $ putStrLn $ printStream r
+
+    r <- run ["Q"] callExample2
+    liftIO $ putStrLn $ printStream r
 
 
 main :: IO ()

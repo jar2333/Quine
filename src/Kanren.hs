@@ -10,6 +10,7 @@ module Kanren
     , initialEnv
     , defineRelation
     , run
+    , runMany
     , runAll
     , Goal
     , Environment(..)
@@ -21,7 +22,7 @@ module Kanren
 import Data.Map as Map ( insert, lookup, empty, Map )
 
 import Control.Monad.State ( MonadState(get), StateT, modify, evalState )
-import Control.Monad.Logic ( observeAll, observeMany, MonadLogic(interleave), Logic )
+import Control.Monad.Logic ( observe, observeAll, observeMany, MonadLogic(interleave), Logic )
 import Control.Monad.Identity ( MonadPlus(mzero), Identity )
 
 import UTerm
@@ -171,20 +172,30 @@ defineRelation name idents goal = modify addRelation
 
 type Stream t = [[(String, Maybe t)]]
 
-run :: (UTerm t, Monad m) => Int -> [String] -> Goal t -> KanrenT t m (Stream t)
-run i idents g = do
+run :: (UTerm t, Monad m) => [String] -> Goal t -> KanrenT t m (Stream t)
+run idents g = do
     env <- get
     let stream = evalState (g initialState) env
-    let results = reifyAll idents $ observeMany i stream
-    return results
+    let results = [observe stream]
+    let reified = reifyAll idents results
+    return reified 
+
+runMany :: (UTerm t, Monad m) => Int -> [String] -> Goal t -> KanrenT t m (Stream t)
+runMany i idents g = do
+    env <- get
+    let stream = evalState (g initialState) env
+    let results = observeMany i stream
+    let reified = reifyAll idents results
+    return reified 
 
 
 runAll :: (UTerm t, Monad m) => [String] -> Goal t -> KanrenT t m (Stream t)
 runAll idents g = do
     env <- get
     let stream = evalState (g initialState) env
-    let results = reifyAll idents $ observeAll stream
-    return results
+    let results = observeAll stream
+    let reified = reifyAll idents results
+    return reified 
 
 ---
 -- Reifiers (private)
