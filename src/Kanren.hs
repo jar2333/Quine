@@ -85,9 +85,8 @@ callFresh q g (State subt bind cnt) = do
     stream <- g $ State subt updated (cnt+1)
     return $ restore stream
     
-    where restore stream = do 
-            (State s b c) <- stream 
-            return $ State s (restoreBind b) c
+    where restore = fmap (\(State s b c) -> State s (restoreBind b) c)
+
           restoreBind b = case Map.lookup q bind of
             Just t  -> Map.insert q t b
             Nothing -> b
