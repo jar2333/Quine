@@ -1,11 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
--- | Parser for the untyped lambda calculus, whose AST is defined in "AST".
 module Parse (parse, tryParse) where
 
 import qualified AST as A
-
 import Text.Megaparsec (
   MonadParsec (..),
   Parsec,
@@ -19,37 +17,128 @@ import Text.Megaparsec (
  )
 import Text.Megaparsec.Char( space1 )
 import qualified Text.Megaparsec.Char.Lexer as L
-
 import Control.Monad (void)
 import Data.Bifunctor (Bifunctor (..))
 import Data.Void (Void)
 
--- * Exposed functions
+
+---
+-- Exposed functions
+---
 
 -- | Parse a Lambda expression; throw an exception over an error
-parse :: String -> A.Term
+parse :: String -> A.Statement
 parse = either error id . tryParse
 
 -- | Parse some code 'String' into an 'L.Expr' or an error message.
-tryParse :: String -> Either String A.Term
+tryParse :: String -> Either String A.Statement
 tryParse = first errorBundlePretty .
-           runParser (pSpace >> pExpr <* eof) "<input>"
+           runParser (pSpace >> pStatement <* eof) "<input>"
 
-{- * Expression parser
 
-Note that Megaparsec allows us to label tokens with 'label' or '(<?>)', which
-helps it produce human-readable error messages.
--}
+---
+-- Entry point for parser.
+---
 
--- | Entry point for parser.
-pExpr :: Parser A.Term
-pExpr = pBody <?> "expression"
+-- | Parse statements
+pStatement :: Parser A.Statement
+pStatement  = pStatementBody <?> "program"
+
+pStatementBody :: Parser A.Statement
+pStatementBody = pRule
+             <|> pQuery
+             <|> pParens pStatement
+
+pRule :: Parser A.Statement
+pRule = do
+  ident <- pIdent <?> "rule id"
+  uvars <- pBrackets $ some pIdent
+  goal  <- pGoal <?> "goal"
+  return $ A.Rule ident uvars goal
+
+pQuery :: Parser A.Statement
+pQuery = do
+  nums  <- some pNum
+  uvars <- pBrackets $ some pIdent
+  goal  <- pGoal <?> "goal"
+  let num = case nums of n:_ -> Just n
+                         _   -> Nothing
+  return $ A.Query num uvars goal
+
+pQueryDefault :: Parser A.Statement
+pQueryDefault = do
+  uvars <- pBrackets $ some pIdent
+  goal  <- pGoal <?> "goal"
+  return $ A.Query Nothing uvars goal
+
+-- | Parse goals
+pGoal :: Parser A.Goal
+pGoal = pDisj
+    <|> pConj
+    <|> pFresh
+    <|> pEqual
+    <|> pRelation
+
+pDisj :: Parser A.Goal
+pDisj = do
+  g1 <- pGoal
+  pToken "&&"
+  g2 <- pGoal
+  return $ A.Disj g1 g2
+
+pConj :: Parser A.Goal
+pConj = do
+  g1 <- pGoal
+  pToken "||"
+  g2 <- pGoal
+  return $ A.Conj g1 g2
+
+pFresh :: Parser A.Goal
+pFresh = do
+  uvars <- pBrackets $ some pIdent
+  goal  <- pGoal
+  return $ A.Fresh uvars goal
+
+pEqual :: Parser A.Goal
+pEqual = do
+  t1 <- pTerm
+  pToken "=="
+  t2 <- pTerm
+  return $ A.Equal t1 t2
+
+pRelation :: Parser A.Goal
+pRelation = do
+  ident <- pIdent
+  args <- pBrackets $ some pArg
+  return $ A.Relation ident args
+
+
+-- | Parse args
+pArg :: Parser A.Arg
+pArg = pArgTerm
+   <|> pParam
+
+pArgTerm :: Parser A.Arg
+pArgTerm = do
+  term <- pTerm
+  return $ A.Term term
+
+pParam :: Parser A.Arg
+pParam = do
+  uvar <- pIdent
+  return $ A.Param uvar
+
+
+-- | Parse lambda terms
+pTerm :: Parser A.Term
+pTerm = pBody <?> "expression"
 
 -- | Parse expressions at the lowest level of precedence, i.e., lambdas.
 pBody :: Parser A.Term
 pBody = pAbs 
     <|> pApp 
     <|> pLet
+    <|> pAtom
 
 -- | Parse lambda abstractions.
 pAbs :: Parser A.Term
@@ -67,29 +156,36 @@ pApp = foldl1 A.App <$> some pAtom <?> "term application"
 pLet :: Parser A.Term
 pLet =  do
   pToken "let"
-  vs <- some pIdent <?> "let binders"
+  vs <- pIdent <?> "let binders"
   pToken "="
   b <- pBody <?> "let binded term"
   pToken "in"
   body <- pBody <?> "let body"
-  return $ A.Let (head vs) b body
+  return $ A.Let vs b body
 
 -- | Parse expressions at the highest precedence, including parenthesized terms
 pAtom :: Parser A.Term
 pAtom = A.Var <$> pVar 
     <|> A.UVar <$> pVar 
-    <|> pParens pExpr
+    <|> pParens pTerm
  where
   pVar = pIdent <?> "variable"
 
--- * Megaparsec boilerplate and helpers
+
+---
+-- Megaparsec boilerplate and helpers
+---
 
 -- | Parsing monad.
 type Parser = Parsec Void String
 
--- | Parse an identifier, possible surrounded by spaces
+-- | Parse an identifier, possibly surrounded by spaces
 pIdent :: Parser String
-pIdent = L.lexeme pSpace (some $ noneOf ['\\','.','(',')',' ','\n','\r','\t','-'])
+pIdent = L.lexeme pSpace (some $ noneOf ['\\','.','(',')',' ','\n','\r','\t','-', '[', ']'])
+
+-- | Parse an integer, possibly surrounded by spaces
+pNum :: Parser Int
+pNum = L.lexeme pSpace L.decimal
 
 -- | Consume a token defined by a string, possibly surrounded by spaces
 pToken :: String -> Parser ()
@@ -98,6 +194,10 @@ pToken = void . L.symbol pSpace
 -- | Parse some element surrounded by parentheses.
 pParens :: Parser a -> Parser a
 pParens = between (pToken "(") (pToken ")")
+
+-- | Parse some element surrounded by brackets.
+pBrackets :: Parser a -> Parser a
+pBrackets = between (pToken "[") (pToken "]")
 
 -- | Consumes whitespace and comments.
 pSpace :: Parser ()
