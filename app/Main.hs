@@ -46,10 +46,10 @@ runner = do
     append
 
     r <- runMany 6 ["T", "Q"] callExample
-    liftIO $ putStrLn $ printStream r
+    liftIO $ printStream r
 
     r <- run ["Q"] callExample2
-    liftIO $ putStrLn $ printStream r
+    liftIO $ printStream r
 
 
 main :: IO ()

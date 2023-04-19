@@ -11,8 +11,8 @@ import UTerm ( UTerm(pretty) )
 -- Print
 ---
 
-printStream ::(UTerm t) =>  Stream t -> String
-printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
+printStream ::(UTerm t) =>  Stream t -> IO ()
+printStream stream = putStrLn $ "[" ++ intercalate ", " (map printSubst stream) ++ "]"
 
 printSubst :: (UTerm t) => [(String, Maybe t)] -> String
 printSubst results = subst

@@ -1,18 +1,39 @@
 module Translator 
-    ( translateStatement
+    ( translateProgram
+    , translateStatement
     ) where
 
 import AST
-import Kanren
 import UTerm
+import Kanren
+import Print
 
-type Statement t = Either (KanrenT t IO ()) (KanrenT t IO (Stream t))
+import Control.Monad.State
+
+type Statement t = KanrenT t IO ()
+
+---
+-- Final Executable statements, built using Kanren primitives
+---
+
+rule :: (UTerm t) => String -> [String] -> Kanren.Goal t -> Translator.Statement t
+rule = defineRelation
+
+query :: (UTerm t) => Maybe Int -> [String] -> Kanren.Goal t -> Translator.Statement t
+query Nothing  idents g = do stream <- runAll idents g    ; liftIO $ printStream stream -- Replace with run?
+query (Just i) idents g = do stream <- runMany i idents g ; liftIO $ printStream stream
+
+
+---
+-- Translate AST to executable statements.
+---
+
+translateProgram :: (UTerm t) => [AST.Statement] -> [Translator.Statement t]
+translateProgram = map translateStatement
 
 translateStatement :: (UTerm t) => AST.Statement -> Translator.Statement t
-translateStatement (Rule name idents goal)      = Left $ defineRelation name idents (translateGoal goal)
-translateStatement (Query Nothing idents goal)  = Right $ runAll idents (translateGoal goal) -- Replace with run?
-translateStatement (Query (Just i) idents goal) = Right $ runMany i idents (translateGoal goal)
-
+translateStatement (Rule name idents goal) = rule name idents (translateGoal goal)
+translateStatement (Query i idents goal)   = query i idents (translateGoal goal) 
 
 translateGoal :: (UTerm t) => AST.Goal -> Kanren.Goal t
 translateGoal (Disj g1 g2)         = disj (translateGoal g1) (translateGoal g2)
