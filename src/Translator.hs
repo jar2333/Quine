@@ -3,12 +3,14 @@ module Translator
     , translateStatement
     ) where
 
+
+import Control.Monad.IO.Class
+
 import AST
 import UTerm
 import Kanren
 import Print
-
-import Control.Monad.State
+import LambdaTerm
 
 type Statement t = KanrenT t IO ()
 
@@ -16,10 +18,10 @@ type Statement t = KanrenT t IO ()
 -- Final Executable statements, built using Kanren primitives
 ---
 
-rule :: (UTerm t) => String -> [String] -> Kanren.Goal t -> Translator.Statement t
+rule :: String -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement LambdaTerm
 rule name idents g = do defineRelation name idents g ; liftIO $ printRelation name idents
 
-query :: (UTerm t) => Maybe Int -> [String] -> Kanren.Goal t -> Translator.Statement t
+query :: Maybe Int -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement LambdaTerm
 query Nothing  idents g = do stream <- runAll idents g    ; liftIO $ printStream stream -- Replace with run?
 query (Just i) idents g = do stream <- runMany i idents g ; liftIO $ printStream stream
 
@@ -28,14 +30,14 @@ query (Just i) idents g = do stream <- runMany i idents g ; liftIO $ printStream
 -- Translate AST to executable statements.
 ---
 
-translateProgram :: (UTerm t) => [AST.Statement] -> [Translator.Statement t]
+translateProgram :: [AST.Statement] -> [Translator.Statement LambdaTerm]
 translateProgram = map translateStatement
 
-translateStatement :: (UTerm t) => AST.Statement -> Translator.Statement t
+translateStatement :: AST.Statement -> Translator.Statement LambdaTerm
 translateStatement (Rule name idents goal) = rule name idents (translateGoal goal)
 translateStatement (Query i idents goal)   = query i idents (translateGoal goal) 
 
-translateGoal :: (UTerm t) => AST.Goal -> Kanren.Goal t
+translateGoal :: AST.Goal -> Kanren.Goal LambdaTerm
 translateGoal (Disj g1 g2)         = disj (translateGoal g1) (translateGoal g2)
 translateGoal (Conj g1 g2)         = conj (translateGoal g1) (translateGoal g2)
 translateGoal (Fresh uvars g)      = fresh uvars (translateGoal g)
@@ -44,6 +46,6 @@ translateGoal (Relation name args) = callRelation name (map getArg args)
     where getArg (Param u) = uvar u
           getArg (Term t)  = translateTerm t
 
-translateTerm :: (UTerm t) => AST.Term -> t
+translateTerm :: AST.Term -> LambdaTerm
 translateTerm (UVar u) = uvar u
 translateTerm _ = error "Not implemented." 

@@ -29,6 +29,7 @@ library
       Interpreter
       Kanren
       KanrenTerm
+      LambdaTerm
       Parse
       Print
       Translator

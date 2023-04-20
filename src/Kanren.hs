@@ -12,6 +12,9 @@ module Kanren
     , run
     , runMany
     , runAll
+    , evalKanrenT
+    , execKanrenT
+    , runKanrenT
     , Goal
     , Environment(..)
     , Stream
@@ -21,7 +24,7 @@ module Kanren
 import Data.Map as Map ( insert, lookup, empty, foldrWithKey, Map )
 
 import Control.Monad.Reader ( MonadPlus(mzero), MonadReader(ask), runReader, Reader )
-import Control.Monad.State  ( MonadState(get), StateT, modify )
+import Control.Monad.State  ( MonadState(get), StateT (runStateT), modify, evalStateT, execStateT, runStateT )
 import Control.Monad.Logic  ( observe, observeAll, observeMany, MonadLogic(interleave), Logic )
 
 import UTerm ( Bind, USubst, UTerm(getTerm, substitute, var, unify, find, uvar) )
@@ -55,6 +58,15 @@ newtype Environment t = Env (Map.Map String ([t] -> Goal t))
 ---
 
 type KanrenT t m a = StateT (Environment t) m a
+
+evalKanrenT :: Monad m => StateT s m a -> s -> m a
+evalKanrenT = evalStateT
+
+execKanrenT :: Monad m => StateT s m a -> s -> m s
+execKanrenT = execStateT
+
+runKanrenT :: StateT s m a -> s -> m (a, s)
+runKanrenT = runStateT
 
 ---
 -- Goal constructors
