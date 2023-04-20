@@ -53,6 +53,7 @@ pRule :: Parser A.Statement
 pRule = do
   ident <- pIdent <?> "rule id"
   uvars <- pBrackets $ some pIdent
+  pToken "="
   goal  <- pGoal <?> "goal"
   return $ A.Rule ident uvars goal
 
@@ -65,45 +66,44 @@ pQuery = do
                          _   -> Nothing
   return $ A.Query num uvars goal
 
-pQueryDefault :: Parser A.Statement
-pQueryDefault = do
-  uvars <- pBrackets $ some pIdent
-  goal  <- pGoal <?> "goal"
-  return $ A.Query Nothing uvars goal
 
 -- | Parse goals
 pGoal :: Parser A.Goal
-pGoal = pDisj
-    <|> pConj
-    <|> pFresh
-    <|> pEqual
-    <|> pRelation
+pGoal = pParens pGoalBody
+
+pGoalBody :: Parser A.Goal
+pGoalBody = pDisj
+        <|> pConj
+        <|> pFresh
+        <|> pEqual
+        <|> pRelation
+        <|> pParens pGoalBody
 
 pDisj :: Parser A.Goal
 pDisj = do
-  g1 <- pGoal
-  pToken "&&"
-  g2 <- pGoal
+  g1 <- pGoal <?> "goal"
+  pToken "||"
+  g2 <- pGoal <?> "goal"
   return $ A.Disj g1 g2
 
 pConj :: Parser A.Goal
 pConj = do
-  g1 <- pGoal
-  pToken "||"
-  g2 <- pGoal
+  g1 <- pGoal <?> "goal"
+  pToken "&&"
+  g2 <- pGoal <?> "goal"
   return $ A.Conj g1 g2
 
 pFresh :: Parser A.Goal
 pFresh = do
   uvars <- pBrackets $ some pIdent
-  goal  <- pGoal
+  goal  <- pGoal <?> "goal"
   return $ A.Fresh uvars goal
 
 pEqual :: Parser A.Goal
 pEqual = do
-  t1 <- pTerm
+  t1 <- pAtom <?> "term"
   pToken "=="
-  t2 <- pTerm
+  t2 <- pAtom <?> "term"
   return $ A.Equal t1 t2
 
 pRelation :: Parser A.Goal
@@ -120,13 +120,11 @@ pArg = pArgTerm
 
 pArgTerm :: Parser A.Arg
 pArgTerm = do
-  term <- pTerm
-  return $ A.Term term
+  A.Term <$> pTerm
 
 pParam :: Parser A.Arg
 pParam = do
-  uvar <- pIdent
-  return $ A.Param uvar
+  A.Param <$> pIdent
 
 
 -- | Parse lambda terms
@@ -135,8 +133,8 @@ pTerm = pBody <?> "expression"
 
 -- | Parse expressions at the lowest level of precedence, i.e., lambdas.
 pBody :: Parser A.Term
-pBody = pAbs 
-    <|> pApp 
+pBody = pAbs
+    <|> pApp
     <|> pLet
     <|> pAtom
 
@@ -165,8 +163,8 @@ pLet =  do
 
 -- | Parse expressions at the highest precedence, including parenthesized terms
 pAtom :: Parser A.Term
-pAtom = A.Var <$> pVar 
-    <|> A.UVar <$> pVar 
+pAtom = A.Var <$> pVar
+    <|> A.UVar <$> pVar
     <|> pParens pTerm
  where
   pVar = pIdent <?> "variable"
@@ -181,7 +179,7 @@ type Parser = Parsec Void String
 
 -- | Parse an identifier, possibly surrounded by spaces
 pIdent :: Parser String
-pIdent = L.lexeme pSpace (some $ noneOf ['\\','.','(',')',' ','\n','\r','\t','-', '[', ']'])
+pIdent = L.lexeme pSpace (some $ noneOf ['\\','.','(',')',' ','\n','\r','\t','-','[',']'])
 
 -- | Parse an integer, possibly surrounded by spaces
 pNum :: Parser Int

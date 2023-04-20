@@ -30,19 +30,25 @@ data Term = UVar UVar
           deriving (Eq, Ord)
 
 
-showAbs, showApp, showVar, showLet :: Term -> String
-showAbs (Abs i e) = "\\" ++ concatMap show i ++ " . " ++ showAbs e
-showAbs e = showApp e
+instance Show Statement where
+  show (Rule i vs g) = i ++ concatMap show vs ++ " = " ++ show g
+  show (Query _ vs g) = concatMap show vs ++ show g
 
-showApp (App e1 e2) = showApp e1 ++ " " ++ showVar e2
-showApp e = showVar e
+instance Show Goal where
+  show (Disj g1 g2) = "(" ++ show g1 ++ " || " ++ show g2 ++ ")"
+  show (Conj g1 g2) = "(" ++ show g1 ++ " && " ++ show g2 ++ ")"
+  show (Fresh vs g) = concatMap show vs ++ show g
+  show (Equal t1 t2) = "(" ++ show t1 ++ " == " ++ show t2 ++ ")"
+  show (Relation i args) = i ++ concatMap show args
 
-showVar (Var i) = i
-showVar e = "(" ++ showAbs e ++ ")"
-
-showLet (Let v e1 e2) = "let" ++ v ++ "=" ++ showAbs e1 ++ 
-                        "in"  ++ showAbs e2 
-showLet e = "(" ++ showAbs e ++ ")"
+instance Show Arg where
+  show (Param uvar) = uvar
+  show (Term term) = show term
 
 instance Show Term where
-  show e = showAbs e
+  show (UVar i) = i
+  show (Var i) = i
+  show (Abs vs e) = "\\" ++ concatMap show vs ++ " . " ++ show e
+  show (App e1 e2) = show e1 ++ " " ++ show e2
+  show (Let v e1 e2) = "let" ++ v ++ "=" ++ show e1 ++ 
+                        "in"  ++ show e2 
