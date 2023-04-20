@@ -15,17 +15,19 @@ module Kanren
     , Goal
     , Environment(..)
     , Stream
-    , Kanren
     , KanrenT
     ) where
 
 import Data.Map as Map ( insert, lookup, empty, foldrWithKey, Map )
 
-import Control.Monad.State ( MonadState(get), StateT, modify, evalState )
-import Control.Monad.Logic ( observe, observeAll, observeMany, MonadLogic(interleave), Logic )
-import Control.Monad.Identity ( MonadPlus(mzero), Identity )
+import Control.Monad.Reader ( MonadPlus(mzero), MonadReader(ask), runReader, Reader )
+import Control.Monad.State  ( MonadState(get), StateT, modify )
+import Control.Monad.Logic  ( observe, observeAll, observeMany, MonadLogic(interleave), Logic )
 
 import UTerm
+    ( Bind,
+      USubst,
+      UTerm(getTerm, substitute, var, unify, find, uvar) )
 
 ---
 -- State type
@@ -40,24 +42,22 @@ data KanrenState t = State {
 type KanrenStream t = Logic (KanrenState t)
 
 ---
--- Kanren monad
----
-
-type KanrenT t m a = StateT (Environment t) m a
-
-type Kanren t a = KanrenT t Identity a
-
----
 -- Goal type
 ---
 
-type Goal t = KanrenState t -> Kanren t (KanrenStream t)
+type Goal t = KanrenState t -> Reader (Environment t) (KanrenStream t)
 
 ---
 -- Environment: define and call relations
 ---
 
 newtype Environment t = Env (Map.Map String ([t] -> Goal t))
+
+---
+-- Kanren monad
+---
+
+type KanrenT t m a = StateT (Environment t) m a
 
 ---
 -- Goal constructors
@@ -73,7 +73,7 @@ newtype Environment t = Env (Map.Map String ([t] -> Goal t))
 
           -- Substitute every uvar subterm in the given term which can be found in a binding map with the corresponding var.
           substUvar :: (UTerm t) => t -> Bind -> t
-          substUvar term bindings = foldrWithKey (\q v t -> substitute (var v) q t) term bindings
+          substUvar term bindings = foldrWithKey (\q va t -> substitute (var va) q t) term bindings
 
 -- For the subtree, make it so every instance of q is replaced with cnt
 -- Then for each state in the result stream, restore the original binding.
@@ -120,7 +120,7 @@ conj g1 g2 state = do
 -- Is redundant in most cases.
 callRelation :: (UTerm t) => String -> [t] -> Goal t
 callRelation name args = binded $ \state -> do
-    Env relations <- get
+    Env relations <- ask
     case Map.lookup name relations of
         Just r  -> let args' = map uvar idents
                        g = r args'
@@ -179,7 +179,7 @@ type Stream t = [[(String, Maybe t)]]
 run :: (UTerm t, Monad m) => [String] -> Goal t -> KanrenT t m (Stream t)
 run idents g = do
     env <- get
-    let stream = evalState (g initialState) env
+    let stream = runReader (g initialState) env
     let results = [observe stream]
     let reified = reifyAll idents results
     return reified 
@@ -187,7 +187,7 @@ run idents g = do
 runMany :: (UTerm t, Monad m) => Int -> [String] -> Goal t -> KanrenT t m (Stream t)
 runMany i idents g = do
     env <- get
-    let stream = evalState (g initialState) env
+    let stream = runReader (g initialState) env
     let results = observeMany i stream
     let reified = reifyAll idents results
     return reified 
@@ -196,7 +196,7 @@ runMany i idents g = do
 runAll :: (UTerm t, Monad m) => [String] -> Goal t -> KanrenT t m (Stream t)
 runAll idents g = do
     env <- get
-    let stream = evalState (g initialState) env
+    let stream = runReader (g initialState) env
     let results = observeAll stream
     let reified = reifyAll idents results
     return reified 
