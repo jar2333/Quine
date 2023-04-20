@@ -7,11 +7,11 @@ cabal-version: 1.12
 name:           quine
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/jar2333/quine#readme>
-homepage:       https://github.com/githubuser/quine#readme
-bug-reports:    https://github.com/githubuser/quine/issues
-author:         Author name here
+homepage:       https://github.com/jar2333/quine#readme
+bug-reports:    https://github.com/jar2333/quine/issues
+author:         Jose A. Ramos, Yiming Fang
 maintainer:     example@example.com
-copyright:      2023 Author name here
+copyright:      Jose A. Ramos, Yiming Fang
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/quine
+  location: https://github.com/jar2333/quine
 
 library
   exposed-modules:

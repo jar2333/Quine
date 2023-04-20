@@ -1,10 +1,10 @@
 name:                quine
 version:             0.1.0.0
-github:              "githubuser/quine"
+github:              "jar2333/quine"
 license:             BSD3
-author:              "Author name here"
+author:              "Jose A. Ramos, Yiming Fang"
 maintainer:          "example@example.com"
-copyright:           "2023 Author name here"
+copyright:           "Jose A. Ramos, Yiming Fang"
 
 extra-source-files:
 - README.md
