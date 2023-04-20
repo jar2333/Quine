@@ -26,11 +26,13 @@ source-repository head
 library
   exposed-modules:
       AST
+      Interpreter
       Kanren
       KanrenTerm
       Parse
       Print
       Translator
+      Typecheck
       UTerm
   other-modules:
       Paths_quine

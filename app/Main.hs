@@ -48,8 +48,8 @@ runner = do
     r <- runMany 6 ["T", "Q"] callExample
     liftIO $ printStream r
 
-    r <- run ["Q"] callExample2
-    liftIO $ printStream r
+    r1 <- run ["Q"] callExample2
+    liftIO $ printStream r1
 
 
 main :: IO ()

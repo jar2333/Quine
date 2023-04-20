@@ -17,7 +17,7 @@ type Statement t = KanrenT t IO ()
 ---
 
 rule :: (UTerm t) => String -> [String] -> Kanren.Goal t -> Translator.Statement t
-rule = defineRelation
+rule name idents g = do defineRelation name idents g ; liftIO $ printRelation name idents
 
 query :: (UTerm t) => Maybe Int -> [String] -> Kanren.Goal t -> Translator.Statement t
 query Nothing  idents g = do stream <- runAll idents g    ; liftIO $ printStream stream -- Replace with run?

@@ -1,5 +1,6 @@
 module Print
     ( printStream
+    , printRelation
     ) where
 
 import Data.List ( intercalate )
@@ -10,6 +11,9 @@ import UTerm ( UTerm(pretty) )
 ---
 -- Print
 ---
+
+printRelation :: String -> [String] -> IO ()
+printRelation name idents = putStrLn $ "Relation: " ++ name ++ intercalate " " idents
 
 printStream ::(UTerm t) =>  Stream t -> IO ()
 printStream stream = putStrLn $ "[" ++ intercalate ", " (map printSubst stream) ++ "]"

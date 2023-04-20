@@ -24,10 +24,7 @@ import Control.Monad.Reader ( MonadPlus(mzero), MonadReader(ask), runReader, Rea
 import Control.Monad.State  ( MonadState(get), StateT, modify )
 import Control.Monad.Logic  ( observe, observeAll, observeMany, MonadLogic(interleave), Logic )
 
-import UTerm
-    ( Bind,
-      USubst,
-      UTerm(getTerm, substitute, var, unify, find, uvar) )
+import UTerm ( Bind, USubst, UTerm(getTerm, substitute, var, unify, find, uvar) )
 
 ---
 -- State type
@@ -73,7 +70,7 @@ type KanrenT t m a = StateT (Environment t) m a
 
           -- Substitute every uvar subterm in the given term which can be found in a binding map with the corresponding var.
           substUvar :: (UTerm t) => t -> Bind -> t
-          substUvar term bindings = foldrWithKey (\q va t -> substitute (var va) q t) term bindings
+          substUvar term binding = foldrWithKey (\q va t -> substitute (var va) q t) term binding
 
 -- For the subtree, make it so every instance of q is replaced with cnt
 -- Then for each state in the result stream, restore the original binding.
