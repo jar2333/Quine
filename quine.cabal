@@ -32,9 +32,9 @@ library
       LambdaTerm
       Parse
       Print
+      Semant
       Translator
       Type
-      Typecheck
       UTerm
   other-modules:
       Paths_quine
