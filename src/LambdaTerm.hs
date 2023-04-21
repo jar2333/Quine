@@ -27,14 +27,43 @@ data LambdaTerm
     | Pair LambdaTerm LambdaTerm Type
     | Fst LambdaTerm Type
     | Snd LambdaTerm Type
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show LambdaTerm where
+    show (ID s) = s
+    show (Var i) = show i
+    show (LVar lv ty) = show lv ++ " : " ++ show ty
+    show (Abs (v, t) e ty) =
+        "\\"
+            ++ "("
+            ++ show v
+            ++ " : "
+            ++ show t
+            ++ ")"
+            ++ " -> "
+            ++ show e
+            ++ " : "
+            ++ show ty
+    show (App e1 e2 ty) = show e1 ++ " on " ++ show e2
+    show (Let v e1 e2 ty) =
+        "let"
+            ++ v
+            ++ "="
+            ++ show e1
+            ++ "in"
+            ++ show e2
+            ++ " : "
+            ++ show ty
+    show (Pair l r ty) = "(" ++ show l ++ ", " ++ show r ++ ")" ++ " : " ++ show ty
+    show (Fst e ty) = "fst" ++ show e ++ " : " ++ show ty
+    show (Snd e ty) = "snd" ++ show e ++ " : " ++ show ty
 
 type Subst = USubst LambdaTerm
 
 instance UTerm LambdaTerm where
     -- Pretty-print the term.
     pretty :: LambdaTerm -> String
-    pretty t = error "not implemented"
+    pretty = show
 
     -- subst N x M = M[x := N]
     -- Substitute all instances of a uvar x with N in M
