@@ -1,7 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 
 module LambdaTerm (
-    LambdaTerm,
+    LambdaTerm (..),
     pretty,
     unify,
     getTerm,
@@ -16,14 +16,14 @@ import UTerm
 
 type UVar = String
 type LambdaVar = String
-type Binder = (Var, Type)
+type Binder = (LambdaVar, Type)
 data LambdaTerm
     = ID UVar
     | Var Var
     | LVar LambdaVar Type
     | Abs Binder LambdaTerm Type
     | App LambdaTerm LambdaTerm Type
-    | Let Var LambdaTerm LambdaTerm Type
+    | Let LambdaVar LambdaTerm LambdaTerm Type
     | Pair LambdaTerm LambdaTerm Type
     | Fst LambdaTerm Type
     | Snd LambdaTerm Type
