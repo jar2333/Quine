@@ -13,7 +13,7 @@ import UTerm ( UTerm(pretty) )
 ---
 
 printRelation :: String -> [String] -> IO ()
-printRelation name idents = putStrLn $ "Relation: " ++ name ++ intercalate " " idents
+printRelation name idents = putStrLn $ "Relation: " ++ name ++ unwords idents
 
 printStream ::(UTerm t) =>  Stream t -> IO ()
 printStream stream = putStrLn $ "[" ++ intercalate ", " (map printSubst stream) ++ "]"

@@ -5,10 +5,12 @@ module AST
       Arg(..)
     ) where
 
+import Type ( Type )
 
 type ID = String
 type UVar = String
 type Var = String
+type Binder = (Var, Type)
 
 data Statement = Rule ID [UVar] Goal
                | Query (Maybe Int) [UVar] Goal
@@ -24,10 +26,10 @@ data Goal = Disj Goal Goal
 
 data Term = UVar UVar
           | Var Var
-          | Abs [Var] Term
+          | Abs Binder Term
           | App Term Term
           | Let Var Term Term
-          deriving (Eq, Ord)
+          deriving (Eq)
 
 
 instance Show Statement where
@@ -48,7 +50,9 @@ instance Show Arg where
 instance Show Term where
   show (UVar i) = i
   show (Var i) = i
-  show (Abs vs e) = "\\" ++ concatMap show vs ++ " . " ++ show e
-  show (App e1 e2) = show e1 ++ " " ++ show e2
+  show (Abs (v, t) e) = "\\" ++ 
+                        "("  ++ show v ++ " : " ++ show t ++ ")"
+                             ++ " -> " ++ show e
+  show (App e1 e2) = show e1 ++ show e2
   show (Let v e1 e2) = "let" ++ v ++ "=" ++ show e1 ++ 
-                        "in"  ++ show e2 
+                        "in" ++ show e2 

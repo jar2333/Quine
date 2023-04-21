@@ -33,6 +33,7 @@ library
       Parse
       Print
       Translator
+      Type
       Typecheck
       UTerm
   other-modules:

@@ -1,5 +1,3 @@
-{-# LANGUAGE InstanceSigs #-}
-
 module UTerm
     ( UTerm(..)
     , Var
@@ -64,4 +62,6 @@ class (Show t, Eq t) => UTerm t where
 
     -- Gets the full expanded term corresponding to the given var in a given substitution (no vars).
     getTerm :: USubst t  -> Var -> Maybe t
-    getTerm subst v = Map.lookup v subst >>= return . \t -> replace t subst
+    getTerm subst v = do
+        term <- Map.lookup v subst
+        return $ replace term subst

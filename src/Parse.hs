@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-module Parse (parse, tryParse) where
+module Parse
+  ( parse
+  , tryParse
+  ) where
 
 import qualified AST as A
 import Text.Megaparsec (
@@ -20,6 +23,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Control.Monad (void)
 import Data.Bifunctor (Bifunctor (..))
 import Data.Void (Void)
+import Type (Type(..))
 
 
 ---
@@ -53,7 +57,7 @@ pRule :: Parser A.Statement
 pRule = do
   ident <- pIdent <?> "rule id"
   uvars <- pBrackets $ some pIdent
-  pToken "="
+  pToken ":="
   goal  <- pGoal <?> "goal"
   return $ A.Rule ident uvars goal
 
@@ -61,6 +65,7 @@ pQuery :: Parser A.Statement
 pQuery = do
   nums  <- some pNum
   uvars <- pBrackets $ some pIdent
+  pToken ":?"
   goal  <- pGoal <?> "goal"
   let num = case nums of n:_ -> Just n
                          _   -> Nothing
@@ -142,10 +147,19 @@ pBody = pAbs
 pAbs :: Parser A.Term
 pAbs = do
   pToken "\\"
-  bs <- some pIdent <?> "lambda binders"
-  pToken "."
+  bs <- some parseBinder
+  pToken "->"
   body <- pBody <?> "lambda body"
-  return $ A.Abs bs body
+  return $ foldr A.Abs body bs
+  where 
+    parseBinder = do
+      var <- pIdent
+      pToken ":"
+      t <- pIdent
+      let typ = case t of "Int"  -> Int
+                          "Bool" -> Bool
+                          _      -> UserDefined t
+      return (var, typ)
 
 -- | Parse juxtaposition as application.
 pApp :: Parser A.Term
