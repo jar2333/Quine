@@ -1,17 +1,17 @@
-module UTerm
-    ( UTerm(..)
-    , Var
-    , Bind
-    , USubst
-    ) where
+module UTerm (
+    UTerm (..),
+    Var,
+    Bind,
+    USubst,
+) where
 
-import Control.Monad.Logic ( Logic )
+import Control.Monad.Logic (Logic)
 
-import Data.Map as Map ( Map, lookup )
+import Data.Map as Map (Map, lookup)
 
 type Var = Int
 type Bind = Map.Map String Var
-type USubst t = Map.Map Var t 
+type USubst t = Map.Map Var t
 
 class (Show t, Eq t) => UTerm t where
     ---
@@ -19,7 +19,7 @@ class (Show t, Eq t) => UTerm t where
     ---
 
     -- Pretty-print the term. By default, is show.
-    pretty :: t -> String 
+    pretty :: t -> String
     pretty = show
 
     ---
@@ -36,7 +36,7 @@ class (Show t, Eq t) => UTerm t where
     -- Substitution of unification variables
     ---
 
-    -- subst N x M = M[x := N] 
+    -- subst N x M = M[x := N]
     -- Substitute all instances of a uvar x in M with N
     substitute :: t -> String -> t -> t
 
@@ -50,18 +50,18 @@ class (Show t, Eq t) => UTerm t where
 
     -- Find term corredponding to a uvar term, return itself on failure or if not a uvar term.
     -- Behavior and signature comes from microKanren paper.
-    find :: t -> USubst t -> t    
+    find :: t -> USubst t -> t
 
     ---
     -- Reification
-    --- 
+    ---
 
     -- Use a substitution to replace each var subterm with the corresponding term in the substitution
     -- Should replace a var subterm with a wildcard if it does not exist in the substitution.
     replace :: t -> USubst t -> t
 
     -- Gets the full expanded term corresponding to the given var in a given substitution (no vars).
-    getTerm :: USubst t  -> Var -> Maybe t
+    getTerm :: USubst t -> Var -> Maybe t
     getTerm subst v = do
         term <- Map.lookup v subst
         return $ replace term subst

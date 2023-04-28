@@ -11,7 +11,6 @@ import Kanren
 import LambdaTerm as L
 import Print
 import Semant
-import UTerm
 
 type Statement t = KanrenT t IO ()
 

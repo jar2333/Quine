@@ -25,8 +25,9 @@ typeof ctx (A.Fst e) = do
 typeof ctx (A.Snd e) = do
     Prod _ t <- typeof ctx e
     return t
-typeof ctx (A.Let v e1 e2) = 
+typeof ctx (A.Let v e1 e2) =
     case t1 of
         Just t1' -> typeof ((v, t1') : ctx) e2
-        _        -> Nothing
-    where t1 = typeof ctx e1
+        _ -> Nothing
+  where
+    t1 = typeof ctx e1

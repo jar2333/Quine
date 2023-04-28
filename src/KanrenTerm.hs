@@ -1,22 +1,22 @@
 {-# LANGUAGE InstanceSigs #-}
 
-module KanrenTerm
-    ( KanrenTerm(..)
-    , pretty
-    , unify
-    , getTerm
-    , replace
-    , find
-    , uvar
-    , Subst
-    ) where
+module KanrenTerm (
+    KanrenTerm (..),
+    pretty,
+    unify,
+    getTerm,
+    replace,
+    find,
+    uvar,
+    Subst,
+) where
 
-import Data.Map as Map ( insert, lookup )
-import Data.Char ( toUpper, toLower )
-import Data.Maybe as Maybe ( fromMaybe )
+import Data.Char (toLower, toUpper)
+import Data.Map as Map (insert, lookup)
+import Data.Maybe as Maybe (fromMaybe)
 
-import Control.Monad ( MonadPlus(mzero) )
-import Control.Monad.Logic ( Logic )
+import Control.Monad (MonadPlus (mzero))
+import Control.Monad.Logic (Logic)
 
 import UTerm
 
@@ -42,7 +42,7 @@ instance UTerm KanrenTerm where
     pretty (Bool b) = map toLower $ show b
     pretty Nil = "()"
 
-    -- subst N x M = M[x := N] 
+    -- subst N x M = M[x := N]
     -- Substitute all instances of a uvar x with N in M
     substitute :: KanrenTerm -> String -> KanrenTerm -> KanrenTerm
     substitute n x (Pair m1 m2) = Pair (substitute n x m1) (substitute n x m2)
@@ -51,14 +51,14 @@ instance UTerm KanrenTerm where
 
     -- Find a stream of substitutions that can unify the two terms given a base substitution.
     unify :: KanrenTerm -> KanrenTerm -> Subst -> Logic Subst
-    unify u v s | u == v              = return s
-    unify (Var u) v s                 = extendSubst u v s
-    unify u v@(Var _) s               = unify v u s
+    unify u v s | u == v = return s
+    unify (Var u) v s = extendSubst u v s
+    unify u v@(Var _) s = unify v u s
     unify (Pair ua ub) (Pair va vb) s = unify (find ua s) (find va s) s >>= \s' -> unify (find ub s') (find vb s') s'
-    unify _ _ _                       = mzero
+    unify _ _ _ = mzero
 
     -- Use a substitution to replace each uvar subterm with the corresponding term in the substitution
-    replace ::  KanrenTerm -> Subst -> KanrenTerm
+    replace :: KanrenTerm -> Subst -> KanrenTerm
     replace (Var v) subst = fromMaybe (ID "_") (getTerm subst v) -- If no substitution exists, any answer suffices!
     replace (Pair t1 t2) subst = Pair (replace t1 subst) (replace t2 subst)
     replace x _ = x
@@ -76,18 +76,16 @@ instance UTerm KanrenTerm where
     var :: Var -> KanrenTerm
     var = Var
 
-
-
 ---
 -- First-order unification implementation
 ---
 
 extendSubst :: Var -> KanrenTerm -> Subst -> Logic Subst
-extendSubst x v s | occurs x v s = mzero
-                | otherwise    = return (Map.insert x v s)
+extendSubst x v s
+    | occurs x v s = mzero
+    | otherwise = return (Map.insert x v s)
 
 occurs :: Var -> KanrenTerm -> Subst -> Bool
-occurs x (Var u) _    = x == u
+occurs x (Var u) _ = x == u
 occurs x (Pair a b) s = occurs x (find a s) s || occurs x (find b s) s
-occurs _ _ _          = False
-
+occurs _ _ _ = False
