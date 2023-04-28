@@ -29,6 +29,7 @@ library
       Interpreter
       Kanren
       KanrenTerm
+      LambdaInterpreter
       LambdaTerm
       Parse
       Print
@@ -55,12 +56,12 @@ library
     , mtl
   default-language: Haskell2010
 
-executable quine-exe
-  main-is: Main.hs
+executable repl
+  main-is: Repl.hs
   other-modules:
       Paths_quine
   hs-source-dirs:
-      app
+      app/repl
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

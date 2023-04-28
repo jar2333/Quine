@@ -2,44 +2,48 @@ module Interpreter
     ( execute
     , executeRepl
     , runner
+    , Option(..)
     ) where
 
 import Control.Monad
 import Control.Monad.IO.Class
 import System.Environment
 
-import qualified Data.Set as Set
 import Kanren
 import LambdaTerm
 import Parse (tryParse)
 import Translator (translateStatement)
-import Type
 
-execute :: IO ()
-execute = do
+
+data Option = PrettyPrint | Execute
+
+execute :: Option -> IO ()
+execute opt = do
   args <- getArgs
   case args of
-    [] -> error "NO FILENAME PROVIDED!"
-    _  -> do
-      content <- readFile (args !! 0)
-      evalKanrenT (runner content) initialEnv
+    []  -> error "NO FILENAME PROVIDED!"
+    f:_ -> do
+      content <- readFile f
+      evalKanrenT (runner opt content) initialEnv
 
-executeRepl :: IO ()
-executeRepl = do
+executeRepl :: Option -> IO ()
+executeRepl opt = do
   putStrLn "QUINE 0.0.1"
-  evalKanrenT repl initialEnv
+  evalKanrenT (repl opt) initialEnv
 
-repl :: KanrenT LambdaTerm IO ()
-repl = do
+repl :: Option -> KanrenT LambdaTerm IO ()
+repl opt = do
   line <- liftIO getLine
   unless (line == ":q") $ do
-    runLine line
-    repl
+    runLine opt line
+    repl opt
 
-runner :: String -> KanrenT LambdaTerm IO ()
-runner contents = mapM_ runLine $ lines contents
+runner :: Option -> String -> KanrenT LambdaTerm IO ()
+runner opt contents = mapM_ (runLine opt) $ lines contents
 
-runLine :: String -> KanrenT LambdaTerm IO ()
-runLine line = case tryParse line of
+runLine :: Option -> String -> KanrenT LambdaTerm IO ()
+runLine opt line = case tryParse line of
     Left err -> liftIO $ putStrLn $ "ERROR: " ++ err
-    Right s  -> translateStatement s 
+    Right s  -> case opt of
+      PrettyPrint -> liftIO $ print s 
+      Execute -> translateStatement s 

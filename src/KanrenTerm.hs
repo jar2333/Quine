@@ -64,7 +64,7 @@ instance UTerm KanrenTerm where
     replace (Pair t1 t2) subst = Pair (replace t1 subst) (replace t2 subst)
     replace x _ = x
 
-    -- Find term corredponding to a uvar term, return itself on failure or if not a uvar term.
+    -- Find term corredponding to an identifier term, return itself on failure or if not an identifier term
     find :: KanrenTerm -> Subst -> KanrenTerm
     find (ID u) s = Maybe.fromMaybe (ID u) (Map.lookup u s)
     find t _ = t

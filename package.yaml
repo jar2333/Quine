@@ -50,9 +50,21 @@ library:
   - happy
 
 executables:
-  quine-exe:
-    main:                Main.hs
+  quine:
+    main:                Quine.hs
     source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - quine
+    - mtl
+
+executables:
+  repl:
+    main:                Repl.hs
+    source-dirs:         app/repl
     ghc-options:
     - -threaded
     - -rtsopts

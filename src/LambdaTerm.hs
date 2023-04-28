@@ -91,7 +91,7 @@ instance UTerm LambdaTerm where
     replace (Snd e t) subst = Snd (replace e subst) t
     replace x _ = x
 
-    -- Find term corredponding to a uvar term, return itself on failure or if not a uvar term.
+    -- Find term corredponding to an identifier term, return itself on failure or if not an identifier term
     find :: LambdaTerm -> Subst -> LambdaTerm
     find (ID u) s = Maybe.fromMaybe (ID u) (Map.lookup u s)
     find t _ = t
