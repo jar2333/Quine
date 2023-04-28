@@ -8,6 +8,7 @@ module LambdaTerm
     , replace
     , find
     , uvar
+    , ident
     ) where
 
 import Control.Monad.Logic
@@ -43,5 +44,5 @@ instance UTerm LambdaTerm where
     uvar = error "not implemented"
 
     -- Wrap the given Var as a var term.
-    var :: Var -> LambdaTerm
-    var = error "not implemented"
+    ident :: Int -> LambdaTerm
+    ident = error "not implemented"

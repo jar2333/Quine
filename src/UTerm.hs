@@ -2,7 +2,6 @@
 
 module UTerm
     ( UTerm(..)
-    , Var
     , Bind
     , USubst
     ) where
@@ -11,9 +10,8 @@ import Control.Monad.Logic ( Logic )
 
 import Data.Map as Map ( Map, lookup )
 
-type Var = Int
-type Bind = Map.Map String Var
-type USubst t = Map.Map Var t 
+type Bind = Map.Map String Int
+type USubst t = Map.Map Int t 
 
 class (Show t, Eq t) => UTerm t where
     ---
@@ -31,8 +29,8 @@ class (Show t, Eq t) => UTerm t where
     -- Wrap the given String as a uvar term.
     uvar :: String -> t
 
-    -- Wrap the given Var as a var term.
-    var :: Var -> t
+    -- Wrap the given int as an identifier term.
+    ident :: Int -> t
 
     ---
     -- Substitution of unification variables
@@ -58,10 +56,10 @@ class (Show t, Eq t) => UTerm t where
     -- Reification
     --- 
 
-    -- Use a substitution to replace each var subterm with the corresponding term in the substitution
-    -- Should replace a var subterm with a wildcard if it does not exist in the substitution.
+    -- Use a substitution to replace each identifier subterm with the corresponding term in the substitution
+    -- Should replace an identifier subterm with a wildcard if it does not exist in the substitution.
     replace :: t -> USubst t -> t
 
-    -- Gets the full expanded term corresponding to the given var in a given substitution (no vars).
-    getTerm :: USubst t  -> Var -> Maybe t
+    -- Gets the full expanded term corresponding to the given identifier in a given substitution.
+    getTerm :: USubst t  -> Int -> Maybe t
     getTerm subst v = Map.lookup v subst >>= return . \t -> replace t subst
