@@ -27,7 +27,7 @@ import Control.Monad.Logic (Logic, MonadLogic (interleave), observe, observeAll,
 import Control.Monad.Reader (MonadPlus (mzero), MonadReader (ask), Reader, runReader)
 import Control.Monad.State (MonadState (get), StateT (runStateT), evalStateT, execStateT, modify, runStateT)
 
-import UTerm ( Bind, USubst, UTerm(getTerm, substitute, ident, unify, find, uvar) )
+import UTerm (Bind, USubst, UTerm (find, getTerm, ident, substitute, unify, uvar))
 
 ---
 -- State type

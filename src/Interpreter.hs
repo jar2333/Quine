@@ -8,10 +8,12 @@ import Control.Monad
 import Control.Monad.IO.Class
 import System.Environment
 
+import qualified Data.Set as Set
 import Kanren
 import LambdaTerm
-import Parse
-import Translator
+import Parse (tryParse)
+import Translator (translateStatement)
+import Type
 
 execute :: IO ()
 execute = do
