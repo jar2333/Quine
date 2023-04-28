@@ -23,7 +23,7 @@ type UVar = String
 type LambdaVar = String
 type Binder = (LambdaVar, Type)
 data LambdaTerm
-    = Uvar UVar
+    = UVar UVar
     | ID Int
     | Var LambdaVar Type
     | Abs Binder LambdaTerm Type
@@ -124,8 +124,8 @@ instance UTerm LambdaTerm where
     uvar = UVar
 
     -- Wrap the given ID as a ID term.
-    indent :: ID -> LambdaTerm
-    indent = ID
+    ident :: Int -> LambdaTerm
+    ident = ID
 
 -- | Extract the type information from the term
 extract :: LambdaTerm -> Type
