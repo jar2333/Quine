@@ -32,8 +32,9 @@ library
       LambdaTerm
       Parse
       Print
+      Semant
       Translator
-      Typecheck
+      Type
       UTerm
   other-modules:
       Paths_quine
