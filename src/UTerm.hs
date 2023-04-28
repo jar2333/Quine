@@ -1,6 +1,5 @@
 module UTerm (
     UTerm (..),
-    Var,
     Bind,
     USubst,
 ) where
