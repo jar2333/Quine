@@ -50,7 +50,7 @@ translateTerm :: A.Term -> L.LambdaTerm
 translateTerm term =
     case term of
         A.UVar u -> uvar u
-        A.Var v -> L.LVar v ty
+        A.Var v -> L.Var v ty
         A.Abs b e -> L.Abs b (translateTerm e) ty
         A.App f x -> L.App (translateTerm f) (translateTerm x) ty
         A.Let v e1 e2 -> L.Let v (translateTerm e1) (translateTerm e2) ty
