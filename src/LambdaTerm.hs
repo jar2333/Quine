@@ -13,11 +13,11 @@ module LambdaTerm (
 import Control.Monad
 import Control.Monad.Logic
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import qualified Data.Maybe as Maybe
 import qualified Data.Set as Set
-import Data.Maybe (fromMaybe)
 import Type
-import UTerm
+import UTerm (USubst, UTerm (..), Var)
 
 type UVar = String
 type LambdaVar = String
@@ -85,7 +85,14 @@ instance UTerm LambdaTerm where
         y' = fresh fvMN y
         fvMN = Set.union (fv body) (fv n)
     -- TODO: I need to check let subsitution is correct
-    substitute n x (Let v e1 e2 t) = Let v e1 (substitute n x e2) t
+    substitute n x l@(Let y e1 e2 t)
+        | y == x = l
+        | y `Set.notMember` fv n = Let y e1 (substitute n x e2) t
+        | otherwise = Let y' e1 (substitute n x e2') t
+      where
+        e2' = substitute (LVar y' (extract e1)) y e2'
+        y' = fresh fvMN y
+        fvMN = Set.union (fv e2) (fv n)
     substitute n x (Pair l r t) = Pair (substitute n x l) (substitute n x r) t
     substitute n x (Fst e t) = Fst (substitute n x e) t
     substitute n x (Snd e t) = Fst (substitute n x e) t
@@ -120,6 +127,16 @@ instance UTerm LambdaTerm where
     var :: Var -> LambdaTerm
     var = Var
 
+-- | Extract the type information from the term
+extract :: LambdaTerm -> Type
+extract (LVar _ t) = t
+extract (Abs _ _ t) = t
+extract (App _ _ t) = t
+extract (Let _ _ _ t) = t
+extract (Pair _ _ t) = t
+extract (Fst _ t) = t
+extract (Snd _ t) = t
+extract _ = Hole
 
 -- | Return the free variables in a lambda term
 fv :: LambdaTerm -> Set.Set LambdaVar
@@ -156,6 +173,9 @@ step :: LambdaTerm -> LambdaTerm
 step (App (Abs bin m _) n _) = substitute n (fst bin) m
 step (Fst (Pair l _ _) _) = l
 step (Snd (Pair _ r _) _) = r
+step (Let v e1 e2 t)
+    | normal e1 = substitute e1 v e2
+    | otherwise = Let v (step e1) e2 t
 step (App l r t)
     | normal l = App l (step r) t
     | otherwise = App (step l) r t
