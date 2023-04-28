@@ -1,5 +1,10 @@
 module LambdaInterpreter (
-    extract
+    extract,
+    fv,
+    freshVar,
+    normal,
+    normalize,
+    step,
 ) where
 
 import qualified Data.Set as Set
