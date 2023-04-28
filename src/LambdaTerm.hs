@@ -62,7 +62,8 @@ instance Show LambdaTerm where
 type Subst = USubst LambdaTerm
 
 
-fv :: LambdaTerm -> Set.Set String
+-- | Return the free variables in a lambda term
+fv :: LambdaTerm -> Set.Set LambdaVar
 fv (LVar varid _) = Set.singleton varid
 fv (Abs bin body _) = Set.difference (fv body) (Set.singleton $ fst bin)
 fv (App fun arg _) = Set.union (fv fun) (fv arg)
@@ -73,6 +74,13 @@ fv (Snd term _) = fv term
 fv  _ = Set.empty
 
 
+-- | Return a "fresh" name not already in the set.
+-- Tries x' then x'', etc.
+fresh :: Set.Set LambdaVar -> LambdaVar -> LambdaVar
+fresh s = fresh'
+  where fresh' n | n `Set.notMember` s = n
+        fresh' n                       = fresh' $ n ++ "'"
+
 instance UTerm LambdaTerm where
     -- Pretty-print the term.
     pretty :: LambdaTerm -> String
@@ -81,8 +89,23 @@ instance UTerm LambdaTerm where
     -- subst N x M = M[x := N]
     -- Substitute all instances of a uvar x with N in M
     substitute :: LambdaTerm -> String -> LambdaTerm -> LambdaTerm
-    substitute n x t = error "not implemented"
-
+    substitute n x v@(LVar y _) = if y == x then n else v
+    substitute n x (App fun arg t) = App (substitute n x fun) (substitute n x arg) t
+    substitute n x a@(Abs bin@(y, yt) body t) 
+        | y == x                 = a
+        | y `Set.notMember` fv n = Abs bin  (substitute n x body)  t
+        | otherwise              = Abs bin' (substitute n x body') t
+        where
+            body' = substitute (LVar y' yt) y body
+            bin' = (y', yt)
+            y' = fresh fvMN y
+            fvMN  = Set.union (fv body) (fv n)
+    -- TODO: I need to check let subsitution is correct
+    substitute n x (Let v e1 e2 t) = Let v e1 (substitute n x e2) t
+    substitute n x (Pair l r t) = Pair (substitute n x l) (substitute n x r) t
+    substitute n x (Fst e t) = Fst (substitute n x e) t
+    substitute n x (Snd e t) = Fst (substitute n x e) t
+    substitute _ _ t = t
     -- Find a stream of substitutions that can unify the two terms given a base substitution.
     unify :: LambdaTerm -> LambdaTerm -> Subst -> Logic Subst
     unify u v s = error "not implemented"
