@@ -13,6 +13,7 @@ module LambdaTerm (
 import Control.Monad.Logic
 import Type
 import UTerm
+import qualified Data.Set as Set
 
 type UVar = String
 type LambdaVar = String
@@ -44,7 +45,7 @@ instance Show LambdaTerm where
             ++ show e
             ++ " : "
             ++ show ty
-    show (App e1 e2 ty) = show e1 ++ " on " ++ show e2
+    show (App e1 e2 ty) = show e1 ++ " on " ++ show e2 ++ " : " ++ show ty
     show (Let v e1 e2 ty) =
         "let"
             ++ v
@@ -59,6 +60,18 @@ instance Show LambdaTerm where
     show (Snd e ty) = "snd" ++ show e ++ " : " ++ show ty
 
 type Subst = USubst LambdaTerm
+
+
+fv :: LambdaTerm -> Set.Set String
+fv (LVar varid _) = Set.singleton varid
+fv (Abs bin body _) = Set.difference (fv body) (Set.singleton $ fst bin)
+fv (App fun arg _) = Set.union (fv fun) (fv arg)
+fv (Let lv _ body _) = Set.difference (fv body) (Set.singleton lv)
+fv (Pair l r _) = Set.union (fv l) (fv r)
+fv (Fst term _) = fv term
+fv (Snd term _) = fv term
+fv  _ = Set.empty
+
 
 instance UTerm LambdaTerm where
     -- Pretty-print the term.
