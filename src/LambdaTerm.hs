@@ -17,15 +17,15 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Maybe as Maybe
 import qualified Data.Set as Set
 import Type
-import UTerm (USubst, UTerm (..), Var)
+import UTerm (USubst, UTerm (..))
 
 type UVar = String
 type LambdaVar = String
 type Binder = (LambdaVar, Type)
 data LambdaTerm
-    = ID UVar
-    | Var Var
-    | LVar LambdaVar Type
+    = Uvar UVar
+    | ID Int
+    | Var LambdaVar Type
     | Abs Binder LambdaTerm Type
     | App LambdaTerm LambdaTerm Type
     | Let LambdaVar LambdaTerm LambdaTerm Type
@@ -35,9 +35,9 @@ data LambdaTerm
     deriving (Eq)
 
 instance Show LambdaTerm where
-    show (ID s) = s
-    show (Var i) = show i
-    show (LVar lv ty) = show lv ++ " : " ++ show ty
+    show (UVar s) = s
+    show (ID i) = show i
+    show (Var lv ty) = show lv ++ " : " ++ show ty
     show (Abs (v, t) e ty) =
         "\\"
             ++ "("
@@ -73,14 +73,14 @@ instance UTerm LambdaTerm where
     -- subst N x M = M[x := N]
     -- Substitute all instances of a uvar x with N in M
     substitute :: LambdaTerm -> String -> LambdaTerm -> LambdaTerm
-    substitute n x v@(LVar y _) = if y == x then n else v
+    substitute n x v@(Var y _) = if y == x then n else v
     substitute n x (App fun arg t) = App (substitute n x fun) (substitute n x arg) t
     substitute n x a@(Abs bin@(y, yt) body t)
         | y == x = a
         | y `Set.notMember` fv n = Abs bin (substitute n x body) t
         | otherwise = Abs bin' (substitute n x body') t
       where
-        body' = substitute (LVar y' yt) y body
+        body' = substitute (Var y' yt) y body
         bin' = (y', yt)
         y' = fresh fvMN y
         fvMN = Set.union (fv body) (fv n)
@@ -90,7 +90,7 @@ instance UTerm LambdaTerm where
         | y `Set.notMember` fv n = Let y e1 (substitute n x e2) t
         | otherwise = Let y' e1 (substitute n x e2') t
       where
-        e2' = substitute (LVar y' (extract e1)) y e2'
+        e2' = substitute (Var y' (extract e1)) y e2'
         y' = fresh fvMN y
         fvMN = Set.union (fv e2) (fv n)
     substitute n x (Pair l r t) = Pair (substitute n x l) (substitute n x r) t
@@ -105,7 +105,7 @@ instance UTerm LambdaTerm where
 
     -- Use a substitution to replace each uvar subterm with the corresponding term in the substitution
     replace :: LambdaTerm -> Subst -> LambdaTerm
-    replace (Var v) subst = fromMaybe (ID "_") (getTerm subst v)
+    replace (ID v) subst = fromMaybe (UVar "_") (getTerm subst v)
     replace (Abs bin term t) subst = Abs bin (replace term subst) t
     replace (App t1 t2 t) subst = App (replace t1 subst) (replace t2 subst) t
     replace (Let v t1 t2 t) subst = Let v (replace t1 subst) (replace t2 subst) t
@@ -116,20 +116,20 @@ instance UTerm LambdaTerm where
 
     -- Find term corredponding to a uvar term, return itself on failure or if not a uvar term.
     find :: LambdaTerm -> Subst -> LambdaTerm
-    find (Var u) s = Maybe.fromMaybe (Var u) (Map.lookup u s)
+    find (ID u) s = Maybe.fromMaybe (ID u) (Map.lookup u s)
     find t _ = t
 
     -- Wrap the given string as a uvar term.
     uvar :: String -> LambdaTerm
-    uvar = ID
+    uvar = UVar
 
-    -- Wrap the given Var as a var term.
-    var :: Var -> LambdaTerm
-    var = Var
+    -- Wrap the given ID as a ID term.
+    indent :: ID -> LambdaTerm
+    indent = ID
 
 -- | Extract the type information from the term
 extract :: LambdaTerm -> Type
-extract (LVar _ t) = t
+extract (Var _ t) = t
 extract (Abs _ _ t) = t
 extract (App _ _ t) = t
 extract (Let _ _ _ t) = t
@@ -140,7 +140,7 @@ extract _ = Hole
 
 -- | Return the free variables in a lambda term
 fv :: LambdaTerm -> Set.Set LambdaVar
-fv (LVar varid _) = Set.singleton varid
+fv (Var varid _) = Set.singleton varid
 fv (Abs bin body _) = Set.difference (fv body) (Set.singleton $ fst bin)
 fv (App fun arg _) = Set.union (fv fun) (fv arg)
 fv (Let lv _ body _) = Set.difference (fv body) (Set.singleton lv)
@@ -160,9 +160,9 @@ fresh s = fresh'
 
 -- | Check if a term is normal
 normal :: LambdaTerm -> Bool
-normal Var{} = True
 normal ID{} = True
-normal LVar{} = True
+normal UVar{} = True
+normal Var{} = True
 normal Abs{} = True -- call-by-value
 normal (Pair l r _) = normal l && normal r
 normal _ = False
