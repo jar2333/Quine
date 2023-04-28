@@ -4,12 +4,11 @@ module UTerm (
     USubst,
 ) where
 
-
-import Data.Map as Map (Map, lookup)
 import Control.Monad.Logic
+import Data.Map as Map (Map, lookup)
 
 type Bind = Map.Map String Int
-type USubst t = Map.Map Int t 
+type USubst t = Map.Map Int t
 
 class (Show t, Eq t) => UTerm t where
     ---
@@ -59,5 +58,5 @@ class (Show t, Eq t) => UTerm t where
     replace :: t -> USubst t -> t
 
     -- Gets the full expanded term corresponding to the given identifier in a given substitution.
-    getTerm :: USubst t  -> Int -> Maybe t
+    getTerm :: USubst t -> Int -> Maybe t
     getTerm subst v = Map.lookup v subst >>= return . \t -> replace t subst
