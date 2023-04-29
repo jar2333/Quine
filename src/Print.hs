@@ -1,9 +1,13 @@
 module Print (
     printStream,
     printRelation,
+    putStrLn,
+    putStr,
+    MonadIO(..)
 ) where
 
 import Data.List (intercalate)
+import Control.Monad.IO.Class ( MonadIO(..) )
 
 import Kanren (Stream)
 import UTerm (UTerm (pretty))
@@ -12,11 +16,11 @@ import UTerm (UTerm (pretty))
 -- Print
 ---
 
-printRelation :: String -> [String] -> IO ()
-printRelation name idents = putStrLn $ "Relation: " ++ name ++ unwords idents
+printRelation :: String -> [String] -> String
+printRelation name idents = "Relation: " ++ name ++ unwords idents
 
-printStream :: (UTerm t) => Stream t -> IO ()
-printStream stream = putStrLn $ "[" ++ intercalate ", " (map printSubst stream) ++ "]"
+printStream :: (UTerm t) => Stream t -> String
+printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
 
 printSubst :: (UTerm t) => [(String, Maybe t)] -> String
 printSubst results = subst

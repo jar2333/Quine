@@ -61,7 +61,6 @@ executables:
     - quine
     - mtl
 
-executables:
   repl:
     main:                Repl.hs
     source-dirs:         app/repl
@@ -74,8 +73,8 @@ executables:
     - mtl
 
 tests:
-  quine-test:
-    main:                Spec.hs
+  kanren:
+    main:                KanrenTest.hs
     source-dirs:         test
     ghc-options:
     - -threaded
@@ -83,4 +82,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - quine
+    - HUnit
     

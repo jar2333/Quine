@@ -25,6 +25,7 @@ execute opt = do
     f:_ -> do
       content <- readFile f
       evalKanrenT (runner opt content) initialEnv
+      
 
 executeRepl :: Option -> IO ()
 executeRepl opt = do
@@ -33,9 +34,11 @@ executeRepl opt = do
 
 repl :: Option -> KanrenT LambdaTerm IO ()
 repl opt = do
+  liftIO $ putStr "> "
   line <- liftIO getLine
   unless (line == ":q") $ do
     runLine opt line
+    liftIO $ putStr "\n"
     repl opt
 
 runner :: Option -> String -> KanrenT LambdaTerm IO ()

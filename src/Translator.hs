@@ -3,8 +3,6 @@ module Translator (
     translateStatement,
 ) where
 
-import Control.Monad.IO.Class
-
 import AST as A
 import Data.Maybe (fromJust)
 import Kanren
@@ -19,11 +17,11 @@ type Statement t = KanrenT t IO ()
 ---
 
 rule :: String -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement LambdaTerm
-rule name idents g = do defineRelation name idents g; liftIO $ printRelation name idents
+rule name idents g = do defineRelation name idents g; liftIO $ putStrLn $ printRelation name idents
 
 query :: Maybe Int -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement LambdaTerm
-query Nothing idents g = do stream <- runAll idents g; liftIO $ printStream stream -- Replace with run?
-query (Just i) idents g = do stream <- runMany i idents g; liftIO $ printStream stream
+query Nothing idents g = do stream <- runAll idents g; liftIO $ putStrLn $ printStream stream -- Replace with run?
+query (Just i) idents g = do stream <- runMany i idents g; liftIO $ putStrLn $ printStream stream
 
 ---
 -- Translate AST to executable statements.

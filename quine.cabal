@@ -56,6 +56,19 @@ library
     , mtl
   default-language: Haskell2010
 
+executable quine
+  main-is: Quine.hs
+  other-modules:
+      Paths_quine
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , mtl
+    , quine
+  default-language: Haskell2010
+
 executable repl
   main-is: Repl.hs
   other-modules:
@@ -69,15 +82,16 @@ executable repl
     , quine
   default-language: Haskell2010
 
-test-suite quine-test
+test-suite kanren
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: KanrenTest.hs
   other-modules:
       Paths_quine
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      HUnit
+    , base >=4.7 && <5
     , quine
   default-language: Haskell2010
