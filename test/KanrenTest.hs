@@ -8,14 +8,14 @@ import Print
 
 testAppend :: IO Test
 testAppend = do
-    result <- evalKanrenT runner initialEnv
+    result <- evalKanrenT kanrenProgram initialEnv
 
     return $ TestCase $ assertEqual 
             "Should be equal" 
             result
             "[{T: (), Q: (t, (u, (v, (w, (x, ())))))}, {T: (t, ()), Q: (u, (v, (w, (x, ()))))}, {T: (t, (u, ())), Q: (v, (w, (x, ())))}, {T: (t, (u, (v, ()))), Q: (w, (x, ()))}, {T: (t, (u, (v, (w, ())))), Q: (x, ())}, {T: (t, (u, (v, (w, (x, ()))))), Q: ()}]"
 
-    where runner = do
+    where kanrenProgram = do
             defineRelation "append" ["L", "S", "O"]
                 (disj
                     (conj
