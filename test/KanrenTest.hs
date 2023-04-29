@@ -1,10 +1,10 @@
+import Test.HUnit
+
 import UTerm
 
 import Kanren
 import KanrenTerm
 import Print 
-
-import Test.HUnit
 
 testAppend :: IO Test
 testAppend = do
