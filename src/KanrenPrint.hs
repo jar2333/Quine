@@ -1,4 +1,4 @@
-module Print (
+module KanrenPrint (
     printStream,
     printRelation,
     putStrLn,

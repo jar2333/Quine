@@ -7,19 +7,19 @@ import AST as A
 import Data.Maybe (fromJust)
 import Kanren
 import LambdaTerm as L
-import Print
+import KanrenPrint
 import Semant
 
-type Statement t = KanrenT t IO ()
+type Statement = KanrenT LambdaTerm IO ()
 
 ---
 -- Final Executable statements, built using Kanren primitives
 ---
 
-rule :: String -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement LambdaTerm
+rule :: String -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement
 rule name idents g = do defineRelation name idents g; liftIO $ putStrLn $ printRelation name idents
 
-query :: Maybe Int -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement LambdaTerm
+query :: Maybe Int -> [String] -> Kanren.Goal LambdaTerm -> Translator.Statement
 query Nothing idents g = do stream <- runAll idents g; liftIO $ putStrLn $ printStream stream -- Replace with run?
 query (Just i) idents g = do stream <- runMany i idents g; liftIO $ putStrLn $ printStream stream
 
@@ -27,10 +27,10 @@ query (Just i) idents g = do stream <- runMany i idents g; liftIO $ putStrLn $ p
 -- Translate AST to executable statements.
 ---
 
-translateProgram :: [A.Statement] -> [Translator.Statement LambdaTerm]
+translateProgram :: [A.Statement] -> [Translator.Statement]
 translateProgram = map translateStatement
 
-translateStatement :: A.Statement -> Translator.Statement LambdaTerm
+translateStatement :: A.Statement -> Translator.Statement
 translateStatement (Rule name idents goal) = rule name idents (translateGoal goal)
 translateStatement (Query i idents goal) = query i idents (translateGoal goal)
 

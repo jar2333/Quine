@@ -28,11 +28,11 @@ library
       AST
       Interpreter
       Kanren
+      KanrenPrint
       KanrenTerm
       LambdaInterpreter
       LambdaTerm
       Parse
-      Print
       Semant
       Translator
       Type

@@ -4,7 +4,7 @@ import UTerm
 
 import Kanren
 import KanrenTerm
-import Print 
+import KanrenPrint 
 
 testAppend :: IO Test
 testAppend = do

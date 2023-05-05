@@ -84,7 +84,7 @@ runKanrenT = runStateT
 
     -- Substitute every uvar subterm in the given term which can be found in a binding map with the corresponding var.
     substUvar :: (UTerm t) => t -> Bind -> t
-    substUvar term binding = foldrWithKey (\q va t -> substitute (ident va) q t) term binding
+    substUvar = foldrWithKey (\q i t -> substitute (ident i) q t)
 
 -- For the subtree, make it so every instance of q is replaced with cnt
 -- Then for each state in the result stream, restore the original binding.
