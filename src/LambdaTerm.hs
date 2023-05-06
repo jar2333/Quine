@@ -41,11 +41,6 @@ data LambdaTerm
     | Snd LambdaTerm Type
     deriving (Eq)
 
-isRigid :: LambdaTerm -> Set.Set LambdaVar -> Bool
-isRigid (Abs (v, _) t _) accum = isRigid t (Set.insert v accum)
-isRigid (Var v _) accum = Set.mem v accum  -- check if it's bound
-isRigid (Costant _) accum = True 
-
 instance Show LambdaTerm where
     show (UVar s) = s
     show (ID i) = show i
@@ -179,10 +174,10 @@ match pair prev = do
 isRigid :: LambdaTerm -> Bool
 isRigid t = walk t Set.empty
     where walk :: LambdaTerm -> Set.Set LambdaVar -> Bool
-          walk (Abs (v, _) t _) accum = isRigid t (Set.insert v accum)
+          walk (Abs (v, _) _ _) accum = walk t (Set.insert v accum)
           walk (Var v _) accum = Set.member v accum  -- check if it's bound
-          walk (ContInt _) accum = True 
-          walk (ContBool_) accum = True 
+          walk (ConstInt _ _) _ = True 
+          walk (ConstBool _ _) _ = True 
           walk _ _ = False
 
 isFlexible :: LambdaTerm -> Bool
