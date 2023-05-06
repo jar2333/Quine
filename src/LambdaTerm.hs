@@ -172,16 +172,23 @@ match pair prev = do
     mzero
 
 isRigid :: LambdaTerm -> Bool
-isRigid t = walk t Set.empty
+isRigid term = walk term Set.empty
     where walk :: LambdaTerm -> Set.Set LambdaVar -> Bool
-          walk (Abs (v, _) _ _) accum = walk t (Set.insert v accum)
-          walk (Var v _) accum = Set.member v accum  -- check if it's bound
-          walk (ConstInt _ _) _ = True 
-          walk (ConstBool _ _) _ = True 
-          walk _ _ = False
+          walk (Abs (v, _) t _) accum = walk t (Set.insert v accum)
+          walk t accum = let h = findHead t in 
+                         case h of
+                            Var v _ -> Set.member v accum  -- check if it's bound
+                            ConstInt _ _ -> True
+                            ConstBool _ _ -> True
+                            _ -> False
 
 isFlexible :: LambdaTerm -> Bool
-isFlexible t = not $ isRigid t
+isFlexible term = not $ isRigid term
+
+findHead :: LambdaTerm -> LambdaTerm
+findHead (Abs (_, _) t _) = findHead t
+findHead (App t _ _) = findHead t
+findHead t = t
 
 ---
 -- Lambda Calculus Interpreter
