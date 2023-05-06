@@ -175,10 +175,9 @@ isRigid :: LambdaTerm -> Bool
 isRigid term = walk term Set.empty
     where walk :: LambdaTerm -> Set.Set LambdaVar -> Bool
           walk (Abs (v, _) t _) accum = walk t (Set.insert v accum)
-          walk t accum = let h = findHead t in 
-                         case h of
+          walk t accum = case findHead t of
                             Var v _ -> Set.member v accum  -- check if it's bound
-                            ConstInt _ _ -> True
+                            ConstInt _ _  -> True
                             ConstBool _ _ -> True
                             _ -> False
 
