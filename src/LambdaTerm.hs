@@ -166,7 +166,18 @@ simplify pairs = do
 
 
           expandArguments :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)]
-          expandArguments p = [p]
+          expandArguments (t1, t2) = zip (walkAbs t1 []) (walkAbs t2 [])
+
+            where walkAbs :: LambdaTerm -> [(Binder, Type)] -> [LambdaTerm]
+                  walkAbs (Abs b t ty) accum = walkAbs t ((b, ty) : accum)
+                  walkAbs term accum = walkApp term accum
+
+                  walkApp :: LambdaTerm -> [(Binder, Type)] -> [LambdaTerm]
+                  walkApp (App t1 t2 ty) binders = reconstructHeading t2 binders : walkApp t1 binders
+                  walkApp term binders = [reconstructHeading term binders]
+
+                  reconstructHeading :: LambdaTerm -> [(Binder, Type)] -> LambdaTerm
+                  reconstructHeading term binders = foldl (\t (b, ty) -> Abs b t ty) term binders
 
           construct :: [(LambdaTerm, LambdaTerm)] -> Logic Subst
           construct set = return Map.empty
