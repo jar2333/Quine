@@ -88,7 +88,7 @@ instance UTerm LambdaTerm where
 
     -- Find a stream of substitutions that can unify the two terms given a base substitution.
     unify :: LambdaTerm -> LambdaTerm -> Subst -> Logic Subst
-    unify _ _ _ = mzero
+    unify t1 t2 _ = simplify [(t1, t2)]
 
     -- Find term corredponding to an identifier term, return itself on failure or if not an identifier term
     find :: LambdaTerm -> Subst -> LambdaTerm
@@ -118,43 +118,74 @@ instance UTerm LambdaTerm where
 -- Unification
 ---
 
+simplify :: [(LambdaTerm, LambdaTerm)] -> Logic Subst
+simplify pairs = do
+    -- Beta/eta reduce every disagreement pair
+    let reduced = map (\(t1, t2) -> (normalize t1, normalize t2)) pairs 
+
+    -- Eliminate all rigid/rigid pairs
+    --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (mzero)
+    --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui〉 | i ∈ [p]}
 
 
+    -- Swap all rigid/flexible pairs with the flexible/rigid reordering 
+
+    -- If only flexible/flexible pairs are left, directly construct a unifier
+
+    -- Otherwise, continue the procedure by calling match on an arbitrary flexible/rigid member of the set of simplified pairs
+
+    mzero
+          
+
+match :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)] -> Logic Subst
+match pair prev = do
+    -- Derive all possible substitutions for the head of the flexible term using the rigid term, use nondeterminism
+
+    -- For each of those substitutions, apply it to the previous set of substitutions to get the new set of pairs for simplifying
+
+    mzero
+
+isRigid :: LambdaTerm -> Bool
+isRigid t = False
 
 ---
 -- Lambda Calculus Interpreter
 ---
 
--- | Extract the type information from the term
-extract :: LambdaTerm -> Type
-extract (Var _ t) = t
-extract (Abs _ _ t) = t
-extract (App _ _ t) = t
-extract (Let _ _ _ t) = t
-extract (Pair _ _ t) = t
-extract (Fst _ t) = t
-extract (Snd _ t) = t
-extract _ = Hole
+-- | Normalize a term to the end
+normalize :: LambdaTerm -> LambdaTerm
+normalize t =
+    if normal t
+        then t
+        else normalize $ step t
 
--- | Return the free variables in a lambda term
-fv :: LambdaTerm -> Set.Set LambdaVar
-fv (Var varid _) = Set.singleton varid
-fv (Abs bin body _) = Set.difference (fv body) (Set.singleton $ fst bin)
-fv (App fun arg _) = Set.union (fv fun) (fv arg)
-fv (Let lv _ body _) = Set.difference (fv body) (Set.singleton lv)
-fv (Pair l r _) = Set.union (fv l) (fv r)
-fv (Fst term _) = fv term
-fv (Snd term _) = fv term
-fv _ = Set.empty
+-- | Take a step towards being normalized
+step :: LambdaTerm -> LambdaTerm
+-- reduction rules
+step (App (Abs bin m _) n _) = subst n (fst bin) m
+step (Fst (Pair l _ _) _) = l
+step (Snd (Pair _ r _) _) = r
+step (Let v e1 e2 t)
+    | normal e1 = subst e1 v e2
+    | otherwise = Let v (step e1) e2 t
+step (App l r t)
+    | normal l = App l (step r) t
+    | otherwise = App (step l) r t
+step (Pair l r t)
+    | normal l = Pair l (step r) t
+    | otherwise = Pair (step l) r t
+step (Fst e t) = Fst (step e) t
+step (Snd e t) = Snd (step e) t
+step x = x
 
-{- | Return a "fresh" name not already in the set.
- Tries x' then x'', etc.
--}
-freshVar :: Set.Set LambdaVar -> LambdaVar -> LambdaVar
-freshVar s = fresh'
-  where
-    fresh' n | n `Set.notMember` s = n
-    fresh' n = fresh' $ n ++ "'"
+-- | Check if a term is normal
+normal :: LambdaTerm -> Bool
+normal ID{} = True
+normal UVar{} = True
+normal Var{} = True
+normal Abs{} = True -- call-by-value
+normal (Pair l r _) = normal l && normal r
+normal _ = False
 
 -- subst N x M = M[x := N]
 -- Substitute all instances of a lambda var x with N in M
@@ -184,37 +215,37 @@ subst n x (Fst e t) = Fst (subst n x e) t
 subst n x (Snd e t) = Fst (subst n x e) t
 subst _ _ t = t
 
--- | Check if a term is normal
-normal :: LambdaTerm -> Bool
-normal ID{} = True
-normal UVar{} = True
-normal Var{} = True
-normal Abs{} = True -- call-by-value
-normal (Pair l r _) = normal l && normal r
-normal _ = False
+{- | Return a "fresh" name not already in the set.
+ Tries x' then x'', etc.
+-}
+freshVar :: Set.Set LambdaVar -> LambdaVar -> LambdaVar
+freshVar s = fresh'
+  where
+    fresh' n | n `Set.notMember` s = n
+    fresh' n = fresh' $ n ++ "'"
 
--- | Take a step towards being normalized
-step :: LambdaTerm -> LambdaTerm
--- reduction rules
-step (App (Abs bin m _) n _) = subst n (fst bin) m
-step (Fst (Pair l _ _) _) = l
-step (Snd (Pair _ r _) _) = r
-step (Let v e1 e2 t)
-    | normal e1 = subst e1 v e2
-    | otherwise = Let v (step e1) e2 t
-step (App l r t)
-    | normal l = App l (step r) t
-    | otherwise = App (step l) r t
-step (Pair l r t)
-    | normal l = Pair l (step r) t
-    | otherwise = Pair (step l) r t
-step (Fst e t) = Fst (step e) t
-step (Snd e t) = Snd (step e) t
-step x = x
+-- | Return the free variables in a lambda term
+fv :: LambdaTerm -> Set.Set LambdaVar
+fv (Var varid _) = Set.singleton varid
+fv (Abs bin body _) = Set.difference (fv body) (Set.singleton $ fst bin)
+fv (App fun arg _) = Set.union (fv fun) (fv arg)
+fv (Let lv _ body _) = Set.difference (fv body) (Set.singleton lv)
+fv (Pair l r _) = Set.union (fv l) (fv r)
+fv (Fst term _) = fv term
+fv (Snd term _) = fv term
+fv _ = Set.empty
 
--- | Normalize a term to the end
-normalize :: LambdaTerm -> LambdaTerm
-normalize t =
-    if normal t
-        then t
-        else normalize $ step t
+-- | Extract the type information from the term
+extract :: LambdaTerm -> Type
+extract (Var _ t) = t
+extract (Abs _ _ t) = t
+extract (App _ _ t) = t
+extract (Let _ _ _ t) = t
+extract (Pair _ _ t) = t
+extract (Fst _ t) = t
+extract (Snd _ t) = t
+extract _ = Hole
+
+
+
+
