@@ -153,7 +153,17 @@ simplify pairs = do
           eliminate set = concat <$> traverse (\p -> if differentHeads p then Nothing else Just $ expandArguments p) set 
 
           differentHeads :: (LambdaTerm, LambdaTerm) -> Bool
-          differentHeads p = False
+          differentHeads (p1, p2) = walk hd1 p1 0 == walk hd2 p2 0
+            where
+                hd1 = findHead p1
+                hd2 = findHead p2
+                walk :: LambdaTerm -> LambdaTerm -> Int -> Int
+                walk target@(Var v1 _) (Abs (v2, _) body _) count = 
+                    if v1 == v2 
+                        then count 
+                        else walk target body count + 1
+                walk _ _ _  = 0
+
 
           expandArguments :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)]
           expandArguments p = [p]
