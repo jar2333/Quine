@@ -15,11 +15,13 @@ import Control.Monad
 import Control.Monad.Logic
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Data.Maybe (fromMaybe)
+import qualified Data.List as List
 import qualified Data.Maybe as Maybe
+import Data.Maybe (fromMaybe)
 
 import Type
 import UTerm (USubst, UTerm (..))
+import qualified Data.Bifunctor
 
 type UVar = String
 type LambdaVar = String
@@ -121,21 +123,40 @@ instance UTerm LambdaTerm where
 simplify :: [(LambdaTerm, LambdaTerm)] -> Logic Subst
 simplify pairs = do
     -- Beta/eta reduce every disagreement pair
-    let reduced = map (\(t1, t2) -> (normalize t1, normalize t2)) pairs 
+    let reduced = map (Data.Bifunctor.bimap normalize normalize) pairs
 
     -- Eliminate all rigid/rigid pairs
-    --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (mzero)
-    --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui〉 | i ∈ [p]}
+    let simplified = eliminate reduced
 
+    -- If a rigid/rigid pair cannot be unified, return failure (mzero)
+    -- Otherwise, continue
+    case simplified of
+        Nothing -> mzero
+        Just s -> do
+            -- Swap all rigid/flexible pairs with the flexible/rigid reordering 
+            let swapped = [if isRigid r && isFlexible f then (f, r) else pair | pair@(r, f) <- s]
 
-    -- Swap all rigid/flexible pairs with the flexible/rigid reordering 
+            -- Continue the procedure by calling match on an arbitrary flexible/rigid member of the set of simplified pairs
+            -- If only flexible/flexible pairs are left, directly construct a unifier
+            case List.find (\(_, r) -> isRigid r) swapped of
+                Nothing -> construct s 
+                Just p  -> match p swapped
 
-    -- If only flexible/flexible pairs are left, directly construct a unifier
+    where --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (Nothing)
+          --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui〉 | i ∈ [p]} (Just $ concatMap ...)
+          eliminate :: [(LambdaTerm, LambdaTerm)] -> Maybe [(LambdaTerm, LambdaTerm)]
+          eliminate set = concat <$> traverse (\p -> if differentHeads p then Nothing else Just $ expandArguments p) set 
 
-    -- Otherwise, continue the procedure by calling match on an arbitrary flexible/rigid member of the set of simplified pairs
+          differentHeads :: (LambdaTerm, LambdaTerm) -> Bool
+          differentHeads p = False
 
-    mzero
-          
+          expandArguments :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)]
+          expandArguments p = [p]
+
+          construct :: [(LambdaTerm, LambdaTerm)] -> Logic Subst
+          construct set = return Map.empty
+        
+
 
 match :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)] -> Logic Subst
 match pair prev = do
@@ -147,6 +168,10 @@ match pair prev = do
 
 isRigid :: LambdaTerm -> Bool
 isRigid t = False
+
+isFlexible :: LambdaTerm -> Bool
+isFlexible t = False
+
 
 ---
 -- Lambda Calculus Interpreter
