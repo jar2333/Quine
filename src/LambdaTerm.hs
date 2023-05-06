@@ -30,6 +30,8 @@ type Binder = (LambdaVar, Type)
 data LambdaTerm
     = UVar UVar
     | ID Int
+    | ConstInt Int Type
+    | ConstBool Bool Type
     | Var LambdaVar Type
     | Abs Binder LambdaTerm Type
     | App LambdaTerm LambdaTerm Type
@@ -72,6 +74,9 @@ instance Show LambdaTerm where
     show (Pair l r ty) = "(" ++ show l ++ ", " ++ show r ++ ")" ++ " : " ++ show ty
     show (Fst e ty) = "fst" ++ show e ++ " : " ++ show ty
     show (Snd e ty) = "snd" ++ show e ++ " : " ++ show ty
+    show (ConstInt i ty) = "const"  ++ show i ++ " : " ++ show ty
+    show (ConstBool b ty) = "const"  ++ show b ++ " : " ++ show ty
+
 
 type Subst = USubst LambdaTerm
 
