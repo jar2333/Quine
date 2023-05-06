@@ -30,7 +30,6 @@ library
       Kanren
       KanrenPrint
       KanrenTerm
-      LambdaInterpreter
       LambdaTerm
       Parse
       Semant
