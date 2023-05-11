@@ -9,6 +9,9 @@ module LambdaTerm (
     replace,
     find,
     uvar,
+    normal,
+    normalize,
+    step
 ) where
 
 import Control.Monad
@@ -22,6 +25,7 @@ import Data.Maybe (fromMaybe)
 import Type
 import UTerm (USubst, UTerm (..))
 import qualified Data.Bifunctor
+import AST (Term(ConstNum))
 
 type UVar = String
 type LambdaVar = String
@@ -44,7 +48,7 @@ data LambdaTerm
 instance Show LambdaTerm where
     show (UVar s) = s
     show (ID i) = show i
-    show (Var lv ty) = show lv ++ " : " ++ show ty
+    show (Var lv ty) = show lv
     show (Abs (v, t) e ty) =
         "\\"
             ++ "("
@@ -54,9 +58,7 @@ instance Show LambdaTerm where
             ++ ")"
             ++ " -> "
             ++ show e
-            ++ " : "
-            ++ show ty
-    show (App e1 e2 ty) = show e1 ++ " on " ++ show e2 ++ " : " ++ show ty
+    show (App e1 e2 ty) = show e1 ++ " on " ++ show e2
     show (Let v e1 e2 ty) =
         "let"
             ++ v
@@ -64,13 +66,11 @@ instance Show LambdaTerm where
             ++ show e1
             ++ "in"
             ++ show e2
-            ++ " : "
-            ++ show ty
-    show (Pair l r ty) = "(" ++ show l ++ ", " ++ show r ++ ")" ++ " : " ++ show ty
-    show (Fst e ty) = "fst" ++ show e ++ " : " ++ show ty
-    show (Snd e ty) = "snd" ++ show e ++ " : " ++ show ty
-    show (ConstInt i ty) = "const"  ++ show i ++ " : " ++ show ty
-    show (ConstBool b ty) = "const"  ++ show b ++ " : " ++ show ty
+    show (Pair l r ty) = "(" ++ show l ++ ", " ++ show r ++ ")"
+    show (Fst e ty) = "fst" ++ show e
+    show (Snd e ty) = "snd" ++ show e
+    show (ConstInt i ty) = show i
+    show (ConstBool b ty) = show b
 
 
 type Subst = USubst LambdaTerm
@@ -148,7 +148,7 @@ simplify pairs = do
                 Just p  -> match p swapped
 
     where --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (Nothing)
-          --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui〉 | i ∈ [p]} (Just $ concatMap ...)
+          --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui�? | i �? [p]} (Just $ concatMap ...)
           eliminate :: [(LambdaTerm, LambdaTerm)] -> Maybe [(LambdaTerm, LambdaTerm)]
           eliminate set = concat <$> traverse (\p -> if differentHeads p then Nothing else Just $ expandArguments p) set 
 
@@ -246,6 +246,8 @@ normal ID{} = True
 normal UVar{} = True
 normal Var{} = True
 normal Abs{} = True -- call-by-value
+normal ConstBool{} = True
+normal ConstInt{} = True
 normal (Pair l r _) = normal l && normal r
 normal _ = False
 

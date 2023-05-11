@@ -1,14 +1,16 @@
 module Translator (
     translateProgram,
     translateStatement,
+    translateTerm
 ) where
 
 import AST as A
-import Data.Maybe (fromJust)
+import Data.Maybe (fromMaybe)
 import Kanren
 import LambdaTerm as L
 import KanrenPrint
 import Semant
+import Type as T
 
 type Statement = KanrenT LambdaTerm IO ()
 
@@ -47,6 +49,8 @@ translateGoal (Relation name args) = callRelation name (map getArg args)
 translateTerm :: A.Term -> L.LambdaTerm
 translateTerm term =
     case term of
+        A.ConstBool b -> L.ConstBool b ty
+        A.ConstNum i -> L.ConstInt i ty
         A.UVar u -> uvar u
         A.Var v -> L.Var v ty
         A.Abs b e -> L.Abs b (translateTerm e) ty
@@ -56,4 +60,4 @@ translateTerm term =
         A.Fst e -> L.Fst (translateTerm e) ty
         A.Snd e -> L.Snd (translateTerm e) ty
   where
-    ty = fromJust $ typeof [] term
+    ty = fromMaybe T.Hole (typeof [] term)

@@ -31,3 +31,5 @@ typeof ctx (A.Let v e1 e2) =
         _ -> Nothing
   where
     t1 = typeof ctx e1
+typeof _ (A.ConstBool _) = Just T.Bool
+typeof _ (A.ConstNum _) = Just T.Int

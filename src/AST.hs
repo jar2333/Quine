@@ -78,3 +78,5 @@ instance Show Term where
     show (Pair l r) = "(" ++ show l ++ ", " ++ show r ++ ")"
     show (Fst e) = "fst" ++ show e
     show (Snd e) = "snd" ++ show e
+    show (ConstBool b) = show b
+    show (ConstNum i) = show i
