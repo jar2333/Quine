@@ -36,6 +36,8 @@ data Term
     | Pair Term Term
     | Fst Term
     | Snd Term
+    | ConstBool Bool
+    | ConstNum Int
     deriving (Eq)
 
 instance Show Statement where

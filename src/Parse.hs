@@ -87,15 +87,15 @@ pGoalBody =
 
 pDisj :: Parser A.Goal
 pDisj = do
-    g1 <- pGoal <?> "goal"
     pToken "||"
+    g1 <- pGoal <?> "goal"
     g2 <- pGoal <?> "goal"
     return $ A.Disj g1 g2
 
 pConj :: Parser A.Goal
 pConj = do
-    g1 <- pGoal <?> "goal"
     pToken "&&"
+    g1 <- pGoal <?> "goal"
     g2 <- pGoal <?> "goal"
     return $ A.Conj g1 g2
 
@@ -107,8 +107,8 @@ pFresh = do
 
 pEqual :: Parser A.Goal
 pEqual = do
-    t1 <- pAtom <?> "term"
     pToken "=="
+    t1 <- pAtom <?> "term"
     t2 <- pAtom <?> "term"
     return $ A.Equal t1 t2
 
@@ -198,10 +198,20 @@ pLet = do
 pAtom :: Parser A.Term
 pAtom =
     A.Var <$> pVar
+        <|> pTrue
+        <|> pFalse
         <|> A.UVar <$> pVar
         <|> pParens pTerm
+        <|> A.ConstNum <$> pInt
   where
     pVar = pIdent <?> "variable"
+    pTrue = do
+        pToken "True"
+        return $ A.ConstBool True
+    pFalse = do
+        pToken "False"
+        return $ A.ConstBool False
+    pInt = pNum
 
 ---
 -- Megaparsec boilerplate and helpers
