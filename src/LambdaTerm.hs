@@ -135,7 +135,7 @@ simplify pairs = do
                 Just p -> match p swapped
   where
     --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (Nothing)
-    --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui�?? | i �?? [p]} (Just $ concatMap ...)
+    --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui�?? | i �?? [p]} (Just $ concatMap ...)
     eliminate :: [(LambdaTerm, LambdaTerm)] -> Maybe [(LambdaTerm, LambdaTerm)]
     eliminate set = concat <$> traverse f set
         where f p = if differentHeads p 
@@ -181,30 +181,32 @@ simplify pairs = do
 
         return Map.empty
 
-    getReturnType :: Type -> Type
-    getReturnType (Arrow t1 t2) = getReturnType t2
-    getReturnType t = t
+    -- getReturnType :: Type -> Type
+    -- getReturnType (Arrow t1 t2) = getReturnType t2
+    -- getReturnType t = t
 
-    fvTyped :: LambdaTerm -> Set.Set (LambdaVar, Type)
-    fvTyped (Var varid ty) = Set.singleton (varid, ty)
-    fvTyped (Abs bin body _) = Set.difference (fvTyped body) (Set.singleton $ fst bin)
-    fvTyped (App fun arg _) = Set.union (fvTyped fun) (fvTyped arg)
-    fvTyped (Let lv _ body _) = Set.difference (fvTyped body) (Set.singleton lv)
-    fvTyped (Pair l r _) = Set.union (fvTyped l) (fvTyped r)
-    fvTyped (Fst term _) = fvTyped term
-    fvTyped (Snd term _) = fvTyped term
-    fvTyped _ = Set.empty
+    -- fvTyped :: LambdaTerm -> Set.Set (LambdaVar, Type)
+    -- fvTyped (Var varid ty) = Set.singleton (varid, ty)
+    -- fvTyped (Abs bin body _) = Set.difference (fvTyped body) (Set.singleton $ fst bin)
+    -- fvTyped (App fun arg _) = Set.union (fvTyped fun) (fvTyped arg)
+    -- fvTyped (Let lv _ body _) = Set.difference (fvTyped body) (Set.singleton lv)
+    -- fvTyped (Pair l r _) = Set.union (fvTyped l) (fvTyped r)
+    -- fvTyped (Fst term _) = fvTyped term
+    -- fvTyped (Snd term _) = fvTyped term
+    -- fvTyped _ = Set.empty
 
 match :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)] -> Logic Subst
 match pair@(l, r) prev = do
     -- Derive all possible substitutions for the head of the flexible term using the rigid term, use nondeterminism
     -- For each of those substitutions, apply it to the previous set of substitutions to get the new set of pairs for simplifying
         
-    (v, t) <- subsitutions
+    -- (v, t) <- subsitutions
 
-    newPairs <- subst v t prev
+    -- newPairs <- subst v t prev
 
-    simplify newPairs
+    -- simplify newPairs
+
+    mzero
 
     where
         subsitutions = if isConst h2 then imitate pair ++ project pair else project pair
