@@ -11,21 +11,20 @@ module LambdaTerm (
     uvar,
     normal,
     normalize,
-    step
+    step,
 ) where
 
 import Control.Monad
 import Control.Monad.Logic
-import qualified Data.Map as Map
-import qualified Data.Set as Set
 import qualified Data.List as List
-import qualified Data.Maybe as Maybe
+import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import qualified Data.Maybe as Maybe
+import qualified Data.Set as Set
 
+import qualified Data.Bifunctor
 import Type
 import UTerm (USubst, UTerm (..))
-import qualified Data.Bifunctor
-import AST (Term(ConstNum))
 
 type UVar = String
 type LambdaVar = String
@@ -50,28 +49,15 @@ instance Show LambdaTerm where
     show (ID i) = show i
     show (Var lv ty) = show lv
     show (Abs (v, t) e ty) =
-        "\\"
-            ++ "("
-            ++ show v
-            ++ " : "
-            ++ show t
-            ++ ")"
-            ++ " -> "
-            ++ show e
+        "\\" ++ "(" ++ show v ++ " : " ++ show t ++ ")" ++ "->" ++ show e
     show (App e1 e2 ty) = show e1 ++ " on " ++ show e2
     show (Let v e1 e2 ty) =
-        "let"
-            ++ v
-            ++ "="
-            ++ show e1
-            ++ "in"
-            ++ show e2
+        "let" ++ v ++ "=" ++ show e1 ++ "in" ++ show e2
     show (Pair l r ty) = "(" ++ show l ++ ", " ++ show r ++ ")"
     show (Fst e ty) = "fst" ++ show e
     show (Snd e ty) = "snd" ++ show e
     show (ConstInt i ty) = show i
     show (ConstBool b ty) = show b
-
 
 type Subst = USubst LambdaTerm
 
@@ -83,15 +69,16 @@ instance UTerm LambdaTerm where
     -- subst N x M = M[x := N]
     -- Substitute all instances of a uvar x with N in M
     substitute :: LambdaTerm -> String -> LambdaTerm -> LambdaTerm
-    substitute n x u@(UVar y) | y == x    = n
-                              | otherwise = u
-    substitute n x (Abs b t ty)      = Abs b (substitute n x t) ty
-    substitute n x (App t1 t2 ty)    = App (substitute n x t1) (substitute n x t2) ty
-    substitute n x (Let y t1 t2 ty)  = Let y (substitute n x t1) (substitute n x t2) ty
-    substitute n x (Pair t1 t2 ty)   = Pair (substitute n x t1) (substitute n x t2) ty
-    substitute n x (Fst t ty)        = Fst (substitute n x t) ty
-    substitute n x (Snd t ty)        = Snd (substitute n x t) ty
-    substitute _ _ m                 = m
+    substitute n x u@(UVar y)
+        | y == x = n
+        | otherwise = u
+    substitute n x (Abs b t ty) = Abs b (substitute n x t) ty
+    substitute n x (App t1 t2 ty) = App (substitute n x t1) (substitute n x t2) ty
+    substitute n x (Let y t1 t2 ty) = Let y (substitute n x t1) (substitute n x t2) ty
+    substitute n x (Pair t1 t2 ty) = Pair (substitute n x t1) (substitute n x t2) ty
+    substitute n x (Fst t ty) = Fst (substitute n x t) ty
+    substitute n x (Snd t ty) = Snd (substitute n x t) ty
+    substitute _ _ m = m
 
     -- Find a stream of substitutions that can unify the two terms given a base substitution.
     unify :: LambdaTerm -> LambdaTerm -> Subst -> Logic Subst
@@ -138,69 +125,100 @@ simplify pairs = do
     case simplified of
         Nothing -> mzero
         Just s -> do
-            -- Swap all rigid/flexible pairs with the flexible/rigid reordering 
+            -- Swap all rigid/flexible pairs with the flexible/rigid reordering
             let swapped = [if isRigid r && isFlexible f then (f, r) else pair | pair@(r, f) <- s]
 
             -- Continue the procedure by calling match on an arbitrary flexible/rigid member of the set of simplified pairs
             -- If only flexible/flexible pairs are left, directly construct a unifier
             case List.find (\(_, r) -> isRigid r) swapped of
-                Nothing -> construct s 
-                Just p  -> match p swapped
+                Nothing -> construct s
+                Just p -> match p swapped
+  where
+    --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (Nothing)
+    --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui�? | i �? [p]} (Just $ concatMap ...)
+    eliminate :: [(LambdaTerm, LambdaTerm)] -> Maybe [(LambdaTerm, LambdaTerm)]
+    eliminate set = concat <$> traverse f set
+        where f p = if differentHeads p 
+                        then Nothing 
+                        else Just $ expandArguments p
 
-    where --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (Nothing)
-          --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui�? | i �? [p]} (Just $ concatMap ...)
-          eliminate :: [(LambdaTerm, LambdaTerm)] -> Maybe [(LambdaTerm, LambdaTerm)]
-          eliminate set = concat <$> traverse (\p -> if differentHeads p then Nothing else Just $ expandArguments p) set 
+    differentHeads :: (LambdaTerm, LambdaTerm) -> Bool
+    differentHeads (p1, p2) = walk hd1 p1 0 == walk hd2 p2 0
+      where
+        hd1 = findHead p1
+        hd2 = findHead p2
+        walk :: LambdaTerm -> LambdaTerm -> Int -> Int
+        walk target@(Var v1 _) (Abs (v2, _) body _) count =
+            if v1 == v2
+                then count
+                else walk target body count + 1
+        walk _ _ _ = 0
 
-          differentHeads :: (LambdaTerm, LambdaTerm) -> Bool
-          differentHeads (p1, p2) = walk hd1 p1 0 == walk hd2 p2 0
-            where
-                hd1 = findHead p1
-                hd2 = findHead p2
-                walk :: LambdaTerm -> LambdaTerm -> Int -> Int
-                walk target@(Var v1 _) (Abs (v2, _) body _) count = 
-                    if v1 == v2 
-                        then count 
-                        else walk target body count + 1
-                walk _ _ _  = 0
+    expandArguments :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)]
+    expandArguments (t1, t2) = zip (walkAbs t1 []) (walkAbs t2 [])
+      where
+        walkAbs :: LambdaTerm -> [(Binder, Type)] -> [LambdaTerm]
+        walkAbs (Abs b t ty) accum = walkAbs t ((b, ty) : accum)
+        walkAbs term accum = walkApp term accum
 
+        walkApp :: LambdaTerm -> [(Binder, Type)] -> [LambdaTerm]
+        walkApp App{} binders = reconstructHeading t2 binders : walkApp t1 binders
+        walkApp term binders = [reconstructHeading term binders]
 
-          expandArguments :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)]
-          expandArguments (t1, t2) = zip (walkAbs t1 []) (walkAbs t2 [])
+        reconstructHeading :: LambdaTerm -> [(Binder, Type)] -> LambdaTerm
+        reconstructHeading = foldl (\t (b, ty) -> Abs b t ty)
 
-            where walkAbs :: LambdaTerm -> [(Binder, Type)] -> [LambdaTerm]
-                  walkAbs (Abs b t ty) accum = walkAbs t ((b, ty) : accum)
-                  walkAbs term accum = walkApp term accum
-
-                  walkApp :: LambdaTerm -> [(Binder, Type)] -> [LambdaTerm]
-                  walkApp (App t1 t2 ty) binders = reconstructHeading t2 binders : walkApp t1 binders
-                  walkApp term binders = [reconstructHeading term binders]
-
-                  reconstructHeading :: LambdaTerm -> [(Binder, Type)] -> LambdaTerm
-                  reconstructHeading term binders = foldl (\t (b, ty) -> Abs b t ty) term binders
-
-          construct :: [(LambdaTerm, LambdaTerm)] -> Logic Subst
-          construct set = return Map.empty
-        
-
+    construct :: [(LambdaTerm, LambdaTerm)] -> Logic Subst
+    construct set = return Map.empty
 
 match :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)] -> Logic Subst
-match pair prev = do
+match pair@(l, r) prev = do
     -- Derive all possible substitutions for the head of the flexible term using the rigid term, use nondeterminism
-
     -- For each of those substitutions, apply it to the previous set of substitutions to get the new set of pairs for simplifying
+        
+    simplify newPairs
 
-    mzero
+    where
+        newPairs = case (isConst h1, isConst h2) of 
+                        (True, False) -> imitate pair
+                        (False, True) -> imitate (r, l)
+                        (True, True)  -> project pair
+                        _ -> error "shouldn't happen" 
+        h1 = findHead l
+        h2 = findHead r
+        isConst h = case h of
+            ConstBool _ _ -> True
+            ConstInt _ _ -> True
+            _ -> False
+    
+        -- (App (App h t1) t2) ... 
+        getBody (Abs _ b _ ) = b
+        getBody x = error "shouldn't happen"
+
+        getTerms (App a b _) = b : getTerms a
+        getTerms _ = []
+
+        consArguments terms = foldl (\f x -> App f x Type.Hole) (last terms) (init terms)
+
+        consHeader = foldl (\t (b, ty) -> Abs b t ty)
+        
+        imitate :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)]
+        imitate (l, r) = App header body
+            where
+                terms = getTerms $ getBody r
+                header = consHeader (findHead r) terms
+
 
 isRigid :: LambdaTerm -> Bool
 isRigid term = walk term Set.empty
-    where walk :: LambdaTerm -> Set.Set LambdaVar -> Bool
-          walk (Abs (v, _) t _) accum = walk t (Set.insert v accum)
-          walk t accum = case findHead t of
-                            Var v _ -> Set.member v accum  -- check if it's bound
-                            ConstInt _ _  -> True
-                            ConstBool _ _ -> True
-                            _ -> False
+  where
+    walk :: LambdaTerm -> Set.Set LambdaVar -> Bool
+    walk (Abs (v, _) t _) accum = walk t (Set.insert v accum)
+    walk t accum = case findHead t of
+        Var v _ -> Set.member v accum -- check if it's bound
+        ConstInt _ _ -> True
+        ConstBool _ _ -> True
+        _ -> False
 
 isFlexible :: LambdaTerm -> Bool
 isFlexible term = not $ isRigid term
@@ -309,7 +327,3 @@ extract (Pair _ _ t) = t
 extract (Fst _ t) = t
 extract (Snd _ t) = t
 extract _ = Hole
-
-
-
-

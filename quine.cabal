@@ -85,7 +85,6 @@ test-suite kanren
   type: exitcode-stdio-1.0
   main-is: KanrenTest.hs
   other-modules:
-      LambdaTest
       Paths_quine
   hs-source-dirs:
       test
