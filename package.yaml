@@ -52,7 +52,7 @@ library:
 executables:
   quine:
     main:                Quine.hs
-    source-dirs:         app
+    source-dirs:         app/exe
     ghc-options:
     - -threaded
     - -rtsopts

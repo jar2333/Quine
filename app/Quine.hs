@@ -7,8 +7,7 @@ import Type as T
 import LambdaTerm as L
 import qualified AST as A
 
--- main :: IO ()
--- main = execute PrettyPrint
+
 
 main :: IO ()
 main = do
