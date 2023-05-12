@@ -1,5 +1,6 @@
 module KanrenPrint (
     printStream,
+    printStreamList,
     printRelation,
     putStrLn,
     putStr,
@@ -20,7 +21,10 @@ printRelation :: String -> [String] -> String
 printRelation name idents = "Relation: " ++ name ++ unwords idents
 
 printStream :: (UTerm t) => Stream t -> String
-printStream stream = "[" ++ intercalate ", " (map printSubst stream) ++ "]"
+printStream stream = "[" ++ intercalate ", " (printStreamList stream) ++ "]"
+
+printStreamList :: (UTerm t) => Stream t -> [String]
+printStreamList = map printSubst
 
 printSubst :: (UTerm t) => [(String, Maybe t)] -> String
 printSubst results = subst

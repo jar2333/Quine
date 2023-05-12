@@ -4,15 +4,15 @@ import UTerm
 
 import Kanren
 import KanrenTerm
-import KanrenPrint 
+import KanrenPrint
 
 testAppend :: IO Test
 testAppend = do
     result <- evalKanrenT kanrenProgram initialEnv
-
-    return $ TestCase $ assertEqual 
-            "Should be equal" 
-            result
+    mapM_ print $ printStreamList result
+    return $ TestCase $ assertEqual
+            "Should be equal"
+            (printStream result)
             "[{T: (), Q: (t, (u, (v, (w, (x, ())))))}, {T: (t, ()), Q: (u, (v, (w, (x, ()))))}, {T: (t, (u, ())), Q: (v, (w, (x, ())))}, {T: (t, (u, (v, ()))), Q: (w, (x, ()))}, {T: (t, (u, (v, (w, ())))), Q: (x, ())}, {T: (t, (u, (v, (w, (x, ()))))), Q: ()}]"
 
     where kanrenProgram = do
@@ -32,7 +32,7 @@ testAppend = do
                     )
                 )
 
-            r <- runMany 6 ["T", "Q"]
+            runMany 6 ["T", "Q"]
                 (fresh ["T", "Q"] $
                     callRelation "append" [
                         uvar "T",
@@ -41,10 +41,8 @@ testAppend = do
                     ]
                 )
 
-            return $ printStream r
-        
 main :: IO ()
 main = do
     putStrLn "\nRUNNING TESTS:"
-    
-    runTestTTAndExit =<< testAppend 
+
+    runTestTTAndExit =<< testAppend
