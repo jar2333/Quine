@@ -23,12 +23,12 @@ import qualified Data.Maybe as Maybe
 import qualified Data.Set as Set
 
 import qualified Data.Bifunctor
-import Type
+import Type as T
 import UTerm (USubst, UTerm (..))
 
 type UVar = String
 type LambdaVar = String
-type Binder = (LambdaVar, Type)
+type Binder = (LambdaVar, T.Type)
 
 data LambdaTerm
     = UVar UVar
@@ -135,7 +135,7 @@ simplify pairs = do
                 Just p -> match p swapped
   where
     --  If both terms of any rigid/rigid pair 〈t, t′〉have different heads (modulo alpha-reduction), they cannot be unified, return failure (Nothing)
-    --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui�? | i �? [p]} (Just $ concatMap ...)
+    --  Otherwise, when they have the same head, then replace〈t, t′〉by {〈λx1 . . . xn. ti, λx1 . . . xn. ui�?? | i �?? [p]} (Just $ concatMap ...)
     eliminate :: [(LambdaTerm, LambdaTerm)] -> Maybe [(LambdaTerm, LambdaTerm)]
     eliminate set = concat <$> traverse f set
         where f p = if differentHeads p 
@@ -196,20 +196,18 @@ simplify pairs = do
     fvTyped _ = Set.empty
 
 match :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)] -> Logic Subst
-match pair@(f, r) prev = do
+match pair@(l, r) prev = do
     -- Derive all possible substitutions for the head of the flexible term using the rigid term, use nondeterminism
     -- For each of those substitutions, apply it to the previous set of substitutions to get the new set of pairs for simplifying
         
     (v, t) <- subsitutions
 
-    newPairs <- subst s prev
+    newPairs <- subst v t prev
 
     simplify newPairs
 
     where
-        subsitutions = case isConst h2 of 
-                        True-> imitate pair
-                        False -> project pair
+        subsitutions = if isConst h2 then imitate pair ++ project pair else project pair
 
         h1 = findHead l
         h2 = findHead r
@@ -218,23 +216,31 @@ match pair@(f, r) prev = do
             ConstBool _ _ -> True
             ConstInt _ _ -> True
             _ -> False
-    
         -- (App (App h t1) t2) ... 
+        getBody :: LambdaTerm -> LambdaTerm
         getBody (Abs _ b _ ) = b
         getBody x = error "shouldn't happen"
 
+        getTerms :: LambdaTerm -> [LambdaTerm]
         getTerms (App a b _) = b : getTerms a
         getTerms _ = []
 
-        consArguments terms = foldl (\f x -> App f x Type.Hole) (last terms) (init terms)
+        getBinders :: [LambdaTerm] -> [Binder]
+        getBinders ((Var v t) : vs) = (v, t) : getBinders vs
+        getBinders   _ = []
 
-        consHeader = foldl (\t (b, ty) -> Abs b t ty)
+        consH :: [LambdaTerm] -> LambdaTerm
+        consH terms = foldl (\f x -> App f x T.Hole) (last terms) (init terms)
+
+        consHeader :: LambdaTerm -> [Binder] -> LambdaTerm
+        consHeader = foldl (\t b@(_, bt) -> Abs b t (T.Arrow (extract t) bt))
         
         imitate :: (LambdaTerm, LambdaTerm) -> [(LambdaVar, LambdaTerm)]
         imitate (l, r) = [] -- App header body
             where
-                terms = getTerms $ getBody r
-                header = consHeader (findHead r) terms
+                terms = getTerms $ getBody l
+                header = consHeader (findHead l) (getBinders terms)
+                body = consH terms
 
         project :: (LambdaTerm, LambdaTerm) -> [(LambdaVar, LambdaTerm)]
         project (l, r) = []
@@ -348,7 +354,7 @@ fv (Snd term _) = fv term
 fv _ = Set.empty
 
 -- | Extract the type information from the term
-extract :: LambdaTerm -> Type
+extract :: LambdaTerm -> T.Type
 extract (Var _ t) = t
 extract (Abs _ _ t) = t
 extract (App _ _ t) = t
