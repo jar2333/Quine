@@ -169,20 +169,42 @@ simplify pairs = do
         reconstructHeading = foldl (\t (b, ty) -> Abs b t ty)
 
     construct :: [(LambdaTerm, LambdaTerm)] -> Logic Subst
-    construct set = return Map.empty
+    construct set = do
+        
+        -- let (lhs, rhs) = unzip set
+        -- let getFreeVars lst = foldl (\fvs t -> Ser.union fvs (fvTyped  t)) Set.empty lst
+        -- let freeVars = Set.union (getFreeVars lhs) (getFreeVars rhs)
+
+        -- let uniqueTypes = foldl (\ut (v, ty) -> Set.insert (show $ getReturnType ty) ut ) Set.empty freeVars
+        
+        -- let freshVars = foldl (\frv ty -> (freshVar freeVars ("_" ++ show $ length frv)) : frv) [] uniqueTypes
+
+        return Map.empty
+
+    getReturnType :: Type -> Type
+    getReturnType (Arrow t1 t2) = getReturnType t2
+    getReturnType t = t
+
+    fvTyped :: LambdaTerm -> Set.Set (LambdaVar, Type)
+    fvTyped (Var varid ty) = Set.singleton (varid, ty)
+    fvTyped (Abs bin body _) = Set.difference (fvTyped body) (Set.singleton $ fst bin)
+    fvTyped (App fun arg _) = Set.union (fvTyped fun) (fvTyped arg)
+    fvTyped (Let lv _ body _) = Set.difference (fvTyped body) (Set.singleton lv)
+    fvTyped (Pair l r _) = Set.union (fvTyped l) (fvTyped r)
+    fvTyped (Fst term _) = fvTyped term
+    fvTyped (Snd term _) = fvTyped term
+    fvTyped _ = Set.empty
 
 match :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)] -> Logic Subst
 match pair@(f, r) prev = do
     -- Derive all possible substitutions for the head of the flexible term using the rigid term, use nondeterminism
     -- For each of those substitutions, apply it to the previous set of substitutions to get the new set of pairs for simplifying
         
-    s <- subsitutions
+    (v, t) <- subsitutions
 
     newPairs <- subst s prev
 
     simplify newPairs
-
-    [LambdaTerm]
 
     where
         subsitutions = case isConst h2 of 
