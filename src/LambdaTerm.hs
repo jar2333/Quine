@@ -172,42 +172,50 @@ simplify pairs = do
     construct set = return Map.empty
 
 match :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)] -> Logic Subst
-match pair@(l, r) prev = do
+match pair@(f, r) prev = do
     -- Derive all possible substitutions for the head of the flexible term using the rigid term, use nondeterminism
     -- For each of those substitutions, apply it to the previous set of substitutions to get the new set of pairs for simplifying
-    mzero
-    -- simplify newPairs
-
-    -- where
-    --     newPairs = case (isConst h1, isConst h2) of 
-    --                     (True, False) -> imitate pair
-    --                     (False, True) -> imitate (r, l)
-    --                     (True, True)  -> project pair
-    --                     _ -> error "shouldn't happen" 
-    --     h1 = findHead l
-    --     h2 = findHead r
-    --     isConst h = case h of
-    --         ConstBool _ _ -> True
-    --         ConstInt _ _ -> True
-    --         _ -> False
-    
-    --     -- (App (App h t1) t2) ... 
-    --     getBody (Abs _ b _ ) = b
-    --     getBody x = error "shouldn't happen"
-
-    --     getTerms (App a b _) = b : getTerms a
-    --     getTerms _ = []
-
-    --     consArguments terms = foldl (\f x -> App f x Type.Hole) (last terms) (init terms)
-
-    --     consHeader = foldl (\t (b, ty) -> Abs b t ty)
         
-    --     imitate :: (LambdaTerm, LambdaTerm) -> [(LambdaTerm, LambdaTerm)]
-    --     imitate (l, r) = App header body
-    --         where
-    --             terms = getTerms $ getBody r
-    --             header = consHeader (findHead r) terms
+    s <- subsitutions
 
+    newPairs <- subst s prev
+
+    simplify newPairs
+
+    [LambdaTerm]
+
+    where
+        subsitutions = case isConst h2 of 
+                        True-> imitate pair
+                        False -> project pair
+
+        h1 = findHead l
+        h2 = findHead r
+
+        isConst h = case h of
+            ConstBool _ _ -> True
+            ConstInt _ _ -> True
+            _ -> False
+    
+        -- (App (App h t1) t2) ... 
+        getBody (Abs _ b _ ) = b
+        getBody x = error "shouldn't happen"
+
+        getTerms (App a b _) = b : getTerms a
+        getTerms _ = []
+
+        consArguments terms = foldl (\f x -> App f x Type.Hole) (last terms) (init terms)
+
+        consHeader = foldl (\t (b, ty) -> Abs b t ty)
+        
+        imitate :: (LambdaTerm, LambdaTerm) -> [(LambdaVar, LambdaTerm)]
+        imitate (l, r) = [] -- App header body
+            where
+                terms = getTerms $ getBody r
+                header = consHeader (findHead r) terms
+
+        project :: (LambdaTerm, LambdaTerm) -> [(LambdaVar, LambdaTerm)]
+        project (l, r) = []
 
 isRigid :: LambdaTerm -> Bool
 isRigid term = walk term Set.empty
